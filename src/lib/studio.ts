@@ -4,12 +4,13 @@ import type { Payload } from 'payload'
 import { sessionCancelled } from './notify'
 
 /**
- * Stúdió-oldali lemondás.
+ * Cancellation from the studio's side.
  *
- * Az AGB szerint a Studio Lumen lemondhat órát betegség, szabadság,
- * szervezési ok vagy **túl kevés jelentkező** miatt (minimum 2 fő), és
- * ilyenkor a lektion "dem Kundenkonto gutgeschrieben" — vagyis a kredit
- * mindig visszajár, függetlenül a 24 órás határtól. Pénzvisszafizetés nincs.
+ * Under the studio's terms, Studio Lumen may cancel a class for
+ * illness, holiday, organisational reasons or **too few participants**
+ * (a minimum of 2), and in that case the class is credited back to the
+ * customer's account — the credit always returns, regardless of the
+ * 24-hour rule. There is no refund in money.
  */
 
 const idOf = (v: unknown): number =>
@@ -24,9 +25,9 @@ export type StudioCancelResult = {
 }
 
 /**
- * Egy óra lemondása a stúdió részéről: minden aktív foglalás lemondva,
- * a kredit visszaírva, és minden érintett kap értesítést.
- * Újrafuttatható: a már lemondott órán nem csinál semmit.
+ * Cancelling one class as the studio: every active booking is
+ * cancelled, the credit written back, and everyone affected notified.
+ * Re-runnable: it does nothing on an already cancelled class.
  */
 export const cancelSessionByStudio = async (
   payload: Payload,
@@ -61,7 +62,7 @@ export const cancelSessionByStudio = async (
         })
         refunded++
       } catch {
-        // Ha az abo közben eltűnt, a foglalást akkor is le kell mondani.
+        // If the pass has vanished meanwhile, the booking still has to be cancelled.
       }
       await payload.update({
         collection: 'bookings', id: b.id,
@@ -84,7 +85,7 @@ export const cancelSessionByStudio = async (
       })
     }
 
-    // A várólistán állóknak sincs már mit ajánlani.
+    // There is nothing left to offer the people on the waitlist either.
     const waiting = await payload.find({
       collection: 'waitlist-entries',
       where: { and: [{ session: { equals: sessionId } }, { status: { in: ['waiting', 'offered'] } }] },
@@ -105,16 +106,17 @@ export const cancelSessionByStudio = async (
     }
   }
 
-  // Az értesítés a tranzakció után megy ki, hogy ne küldjünk levelet
-  // olyan változásról, ami végül nem mentődött el.
+  // Notifications go out after the transaction, so we never send mail
+  // about a change that did not end up being saved.
   const { notified } = await sessionCancelled(payload, sessionId, reason, true)
 
   return { ok: true, cancelled: bookings.docs.length, refunded, notified }
 }
 
 /**
- * Nem gyűlt össze a minimum létszám. Az AGB 2 főt ír elő; a határt
- * paraméterben kapja, hogy Nadine kivételt tehessen.
+ * The minimum number of participants was not reached. The studio's
+ * terms require 2; the threshold is a parameter so the owner can make
+ * an exception.
  */
 export const cancelForTooFewParticipants = async (
   payload: Payload,

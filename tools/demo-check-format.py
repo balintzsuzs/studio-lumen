@@ -1,8 +1,8 @@
-"""A /setup/demo-check válaszát olvasható listává formázza.
+"""Formats the /setup/demo-check response into a readable list.
 
-A szabvány bemenetről olvas. Külön fájlban van, mert a bash-be ágyazott
-Python idézőjelei kibogozhatatlanok, és az f-string sem tűri a
-visszaperjelet.
+Reads from standard input. It lives in its own file because the quoting
+of Python embedded in bash is impossible to untangle, and an f-string
+will not take a backslash either.
 """
 import json
 import sys
@@ -31,5 +31,5 @@ print()
 if adat["bemutathato"]:
     print("  MINDEN RENDBEN - bemutathato.")
 else:
-    print("  " + str(adat["hibak"]) + " dolog nincs rendben, lasd fent.")
+    print("  " + str(adat["hibak"]) + " item(s) not in order, see above.")
     sys.exit(2)

@@ -16,8 +16,8 @@ export async function cancel(formData: FormData) {
 
   const payload = await getClient()
 
-  // Az óra azonosítója még a lemondás előtt kell, hogy utána ki tudjuk
-  // ajánlani a felszabadult helyet a várólistán állóknak.
+  // We need the class id before the cancellation, so that afterwards
+  // we can offer the freed-up spot to the people on the waitlist.
   let sessionId: number | null = null
   try {
     const b: any = await payload.findByID({ collection: 'bookings', id: bookingId, depth: 0 })
@@ -28,10 +28,11 @@ export async function cancel(formData: FormData) {
 
   const res = await cancelBooking(payload, user.id as number, bookingId)
 
-  // A kiajánlás a lemondás után, külön: ha ez hibára fut, a lemondás
-  // akkor is érvényes marad, és az ütemező söprése behozza.
+  // Offering happens after the cancellation, separately: if it fails,
+  // the cancellation still stands, and the scheduler's sweep picks it
+  // up.
   if (res.ok && sessionId) {
-    try { await promoteWaitlist(payload, sessionId) } catch { /* az ütemező pótolja */ }
+    try { await promoteWaitlist(payload, sessionId) } catch { /* the scheduler will catch it */ }
     revalidatePath(`/buchen/${sessionId}`)
   }
 

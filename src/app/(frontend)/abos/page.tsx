@@ -10,7 +10,7 @@ import { order, withdraw } from './actions'
 
 export const dynamic = 'force-dynamic'
 
-/** „3 Monate" / „3 months", és egy hónap alatt napokban. */
+/** "3 Monate" / "3 months", and in days when under a month. */
 const ervenyesseg = (t: Fordito, m: number) =>
   m < 1 ? t('abos.napok', { db: Math.round(m * 30) })
     : m === 1 ? t('abos.egy_honap')

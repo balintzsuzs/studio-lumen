@@ -13,12 +13,12 @@ export const dynamic = 'force-dynamic'
 type Search = Promise<{ q?: string }>
 
 /**
- * A vendégek listája. Belépő a profilokhoz, és semmi több: a kereső
- * mellett csak annyit mutat, amivel egy nevet meg lehet találni.
+ * The customer list. A way into the profiles and nothing more: beside
+ * the search box it shows only what is needed to find a name.
  *
- * Az oktatók is látják, nem csak az admin — ugyanaz az indok, mint a
- * stúdió naptáránál: négyen tartják az órákat és beugranak egymás
- * helyett, és aki beugrik, annak elérnie is kell a vendéget.
+ * Instructors see it too, not only the admin — the same reasoning as
+ * for the studio calendar: four of them teach and they cover for each
+ * other, and whoever steps in also needs to reach the customer.
  */
 export default async function Kunden({ searchParams }: { searchParams: Search }) {
   const { q } = await searchParams
@@ -87,7 +87,7 @@ export default async function Kunden({ searchParams }: { searchParams: Search })
                       {k.telefon && <><br /><a href={`tel:${k.telefon}`}>{k.telefon}</a></>}
                     </td>
                     <td>
-                      {/* A megjegyzés tartalma csak a profilon látszik. */}
+                      {/* The note's content is only visible on the profile. */}
                       {k.egeszseg && (
                         <span className="tag egeszseg">{t('kunde.van_egeszseg')}</span>
                       )}

@@ -6,12 +6,12 @@ import AngebotTabs from '../../(site)/components/AngebotTabs'
 export const dynamic = 'force-dynamic'
 
 /**
- * A Studio Lumen weboldal angol nyitólapja.
+ * The English home page of the Studio Lumen website.
  *
- * A jelölés a statikus `1_website_studio_lumen/index-en.html`-ből
- * származik, ugyanazzal a gépi átalakítással, mint a német párja —
- * a DOM-szerkezetük tagról tagra megegyezik, csak a szöveg más.
- * A kapcsolati űrlap és a navigáció a némettel közös komponens.
+ * The markup comes from the static English HTML page, through the same
+ * mechanical conversion as its German counterpart — their DOM
+ * structures match tag for tag, only the text differs. The contact
+ * form and the navigation are components shared with the German side.
  */
 export default async function SitePageEn({
   searchParams,

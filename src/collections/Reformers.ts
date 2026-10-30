@@ -1,9 +1,9 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Egy konkrét gép egy teremben. A `row` és `column` adja a helyét a
- * teremtérképen, az `status` pedig kiveheti a foglalható körből
- * (pl. karbantartás) anélkül, hogy a múltbeli foglalásokat elrontaná.
+ * One actual machine in one room. `row` and `column` give its place on
+ * the floor plan, and `status` can take it out of the bookable set
+ * (maintenance, say) without corrupting past bookings.
  */
 export const Reformers: CollectionConfig = {
   slug: 'reformers',

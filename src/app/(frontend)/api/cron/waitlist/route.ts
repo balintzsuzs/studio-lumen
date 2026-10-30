@@ -3,11 +3,11 @@ import config from '@payload-config'
 import { runWaitlistTick } from '@/lib/waitlist'
 
 /**
- * Percenkénti várólista-kör élesben (Vercel Cron, lásd `vercel.json`).
+ * The waitlist round in production (Vercel Cron, see `vercel.json`).
  *
- * A `/setup/waitlist-tick` útvonaltól eltérően ez élesben is él, ezért
- * nem az `ALLOW_SEED`, hanem egy titok védi. A Vercel a sajátját az
- * `Authorization: Bearer $CRON_SECRET` fejlécben küldi.
+ * Unlike `/setup/waitlist-tick`, this one is live in production, so it
+ * is guarded by a secret rather than by `ALLOW_SEED`. Vercel sends its
+ * own in an `Authorization: Bearer $CRON_SECRET` header.
  */
 export async function GET(request: Request) {
   const secret = process.env.CRON_SECRET

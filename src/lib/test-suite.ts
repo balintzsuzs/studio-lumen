@@ -27,11 +27,11 @@ import {
 } from './naptar'
 
 /**
- * Teszt-készlet a foglalási szabályokra.
+ * The test suite for the booking rules.
  *
- * Minden eset saját adatot hoz létre, és a futás elején minden teszt-adat
- * törlődik, így a készlet újrafuttatható és a sorrendtől sem függ.
- * Teszt-felhasználó: @test.local végű e-mail. Teszt-óra: note = 'TEST'.
+ * Every case creates its own data, and all test data is deleted at the
+ * start of a run, so the suite is re-runnable and order-independent.
+ * A test user has an @test.local email; a test class has note = 'TEST'.
  */
 
 const TEST_DOMAIN = '@test.local'
@@ -39,7 +39,7 @@ const TEST_NOTE = 'TEST'
 
 export type Case = { name: string; pass: boolean; detail?: string }
 
-/** Az elutasítás indoka, ha van. A típusszűkítés nem él át argumentumhatárt. */
+/** The rejection reason, if any. Type narrowing does not survive an argument boundary. */
 const why = (r: unknown): string => {
   const o = r as { ok?: boolean; reason?: string }
   return o && o.ok === false && o.reason ? o.reason : ''
@@ -48,14 +48,14 @@ const why = (r: unknown): string => {
 const q = async (fn: () => Promise<unknown>) => { try { await fn() } catch { /* takarítás */ } }
 
 /**
- * A takarítás csak a teszt-készlet saját adatát törli.
+ * Clean-up deletes only the suite's own data.
  *
- * Korábban minden foglalást, abót, várólista-tételt és értesítést
- * letörölt, kollekciónként végigsöpörve. Ez a teszteknek megfelelt, de
- * egy futás elvitte a bemutató-adatot is — az órarend és a teremtérkép
- * utána üresen állt. Így most a hatókör zárt: teszt-felhasználó
- * (`@test.local`) birtokolja, vagy teszt-órához (`note = 'TEST'`)
- * tartozik, vagy a teszt jelölte meg magának (`note`).
+ * It used to delete every booking, pass, waitlist entry and
+ * notification, sweeping collection by collection. That suited the
+ * tests, but a single run also took the demo data with it — the
+ * schedule and the floor plan stood empty afterwards. So the scope is
+ * now closed: owned by a test user (`@test.local`), or belonging to a
+ * test class (`note = 'TEST'`), or marked by the test itself (`note`).
  */
 export const reset = async (payload: Payload) => {
   const idk = (docs: unknown[]) => (docs as { id: number }[]).map((d) => d.id)
@@ -65,7 +65,7 @@ export const reset = async (payload: Payload) => {
   })
   const userIds = idk(users.docs)
 
-  // A teszt-sorozatok és a belőlük generált órák, meg az egyedi teszt-órák.
+  // The test series and the classes generated from them, plus standalone test classes.
   const series = await payload.find({
     collection: 'session-series', where: { name: { like: TEST_NOTE } }, limit: 500, depth: 0,
   })
@@ -81,7 +81,7 @@ export const reset = async (payload: Payload) => {
   })
   for (const id of idk(sajat.docs)) sessionIds.add(id)
 
-  /** Teszt-adat, ha teszt-felhasználóé VAGY teszt-órához tartozik. */
+  /** Test data if it belongs to a test user OR to a test class. */
   const takarit = async (
     c: 'notifications' | 'bookings' | 'waitlist-entries' | 'abos',
     birtokos: 'customer' | 'recipient',
@@ -95,14 +95,15 @@ export const reset = async (payload: Payload) => {
     for (const id of idk(all.docs)) await q(() => payload.delete({ collection: c, id }))
   }
 
-  // Sorrend: ami hivatkozik, az megy előbb.
+  // Order matters: whatever holds the reference goes first.
   await takarit('notifications', 'recipient', 'session')
   await takarit('bookings', 'customer', 'session')
   await takarit('waitlist-entries', 'customer', 'session')
   await takarit('abos', 'customer', null)
 
-  // Zárva tartás: a tesztek a végén maguk törlik, ez csak a megszakadt
-  // futás után marad — ezért jelöli meg magát a `note` mezőben.
+  // Closures: the tests delete these themselves at the end, so these
+  // only survive an interrupted run — which is why they mark
+  // themselves in the `note` field.
   const closures = await payload.find({
     collection: 'closure-periods', where: { note: { equals: TEST_NOTE } }, limit: 500, depth: 0,
   })
@@ -187,7 +188,7 @@ const mkSession = async (
   }) as Promise<any>
 }
 
-/** Megtölti az órát, hogy a várólista élesedjen. Visszaadja a foglalásokat. */
+/** Fills the class so the waitlist kicks in. Returns the bookings. */
 const fillSession = async (c: Ctx, session: any) => {
   const free = (await getAvailability(c.payload, session.id)).filter((r) => r.status === 'free')
   const made: { userId: number; bookingId: number }[] = []
@@ -217,7 +218,7 @@ const mkSeries = async (
   }) as Promise<any>
 }
 
-/** Egy ügyfélnek adott típusból kiküldött értesítések. */
+/** The notifications of a given type sent to one customer. */
 const mails = async (c: Ctx, userId: number, type?: string) => {
   const and: any[] = [{ recipient: { equals: userId } }]
   if (type) and.push({ type: { equals: type } })
@@ -228,13 +229,13 @@ const mails = async (c: Ctx, userId: number, type?: string) => {
 const credits = async (c: Ctx, aboId: number) =>
   ((await c.payload.findByID({ collection: 'abos', id: aboId })) as any).creditsRemaining
 
-// ---------------------------------------------------------------- esetek
+// ---------------------------------------------------------------- cases
 
 export const runAll = async (payload: Payload): Promise<Case[]> => {
   const out: Case[] = []
   const add = (name: string, pass: boolean, detail?: string) => out.push({ name, pass, detail })
 
-  /** Egy blokk hibája ne állítsa meg a többit, hanem bukott esetként jelenjen meg. */
+  /** A failure in one block must not stop the rest; it shows up as a failed case. */
   const section = async (label: string, fn: () => Promise<void>) => {
     try { await fn() } catch (e) {
       add(`${label}: unerwarteter Fehler`, false, String(e).slice(0, 120))
@@ -244,7 +245,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
   await reset(payload)
   const c = await buildCtx(payload)
 
-  await section("sikeres foglalás, konkrét géppel", async () => {
+  await section("successful booking, specific machine", async () => {
     const u = await mkCustomer(c); const a = await mkAbo(c, u, { credits: 5 })
     const s = await mkSession(c)
     const spots = await getAvailability(payload, s.id)
@@ -257,7 +258,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       after.find((x) => x.reformerId === target.reformerId)?.status === 'taken')
   })
 
-  await section("foglalás gépválasztás nélkül: automatikus kiosztás", async () => {
+  await section("booking without choosing a machine: automatic assignment", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c)
     const r = await createBooking(payload, u.id, s.id)
@@ -268,7 +269,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     } else add('Automatische Zuteilung setzt ein Gerät', false)
   })
 
-  await section("ugyanaz az ügyfél kétszer", async () => {
+  await section("the same customer twice", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c)
     await createBooking(payload, u.id, s.id)
@@ -276,7 +277,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Gleiche Kundin kann nicht zweimal buchen', !r.ok, why(r))
   })
 
-  await section("másik ügyfél, foglalt gép", async () => {
+  await section("another customer, machine already taken", async () => {
     const u1 = await mkCustomer(c); await mkAbo(c, u1)
     const u2 = await mkCustomer(c); const a2 = await mkAbo(c, u2, { credits: 5 })
     const s = await mkSession(c)
@@ -289,7 +290,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
   })
 
   await section("terem megtelik", async () => {
-    const s = await mkSession(c, { studio: c.studioB }) // Zug, 6 gép
+    const s = await mkSession(c, { studio: c.studioB }) // Zug, 4 machines
     const total = (await getAvailability(payload, s.id)).length
     for (let i = 0; i < total; i++) {
       const u = await mkCustomer(c); await mkAbo(c, u)
@@ -303,7 +304,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Guthaben bei ausgebuchter Lektion unverändert', (await credits(c, a.id)) === 3)
   })
 
-  await section("abo állapotok", async () => {
+  await section("pass states", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u, { credits: 0 })
     const s = await mkSession(c)
     const r = await createBooking(payload, u.id, s.id)
@@ -328,7 +329,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Ohne Abo wird abgewiesen', !r.ok, why(r))
   }
 
-  await section("több abo: a hamarabb lejáró fogy először", async () => {
+  await section("several passes: the one expiring soonest is used first", async () => {
     const u = await mkCustomer(c)
     const late = await mkAbo(c, u, { credits: 5, months: 10 })
     const soon = await mkAbo(c, u, { credits: 5, months: 2 })
@@ -340,7 +341,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       (await credits(c, soon.id)) === 4 && (await credits(c, late.id)) === 5)
   })
 
-  await section("óra állapota", async () => {
+  await section("class status", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c, { status: 'cancelled' })
     const r = await createBooking(payload, u.id, s.id)
@@ -353,7 +354,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Vergangene Lektion wird abgewiesen', !r.ok, why(r))
   }
 
-  await section("idegen gép, karbantartás", async () => {
+  await section("wrong studio's machine, maintenance", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c, { studio: c.studioA })
     const foreign = (await payload.find({
@@ -379,12 +380,12 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     await payload.update({ collection: 'reformers', id: target.id, data: { status: 'active' } })
   }
 
-  await section("zárva tartás hatóköre", async () => {
+  await section("scope of a closure", async () => {
     const s = await mkSession(c, { studio: c.studioA, type: c.reformerType })
     const d = new Date(s.startsAt)
     const day = new Date(d.getFullYear(), d.getMonth(), d.getDate()).toISOString()
 
-    // csak a matten órákra
+    // only for the mat classes
     const cp1: any = await payload.create({
       collection: 'closure-periods',
       data: {
@@ -395,7 +396,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Schliessung für andere Kursart blockiert nicht', (await isClosed(payload, s)) === null)
     await payload.delete({ collection: 'closure-periods', id: cp1.id })
 
-    // csak a másik stúdióra
+    // only for the other studio
     const cp2: any = await payload.create({
       collection: 'closure-periods',
       data: {
@@ -406,7 +407,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Schliessung für anderes Studio blockiert nicht', (await isClosed(payload, s)) === null)
     await payload.delete({ collection: 'closure-periods', id: cp2.id })
 
-    // erre az óratípusra
+    // for this class type
     const cp3: any = await payload.create({
       collection: 'closure-periods',
       data: {
@@ -421,7 +422,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Guthaben bei Schliessung unverändert', (await credits(c, a.id)) === 4)
     await payload.delete({ collection: 'closure-periods', id: cp3.id })
 
-    // mindenre vonatkozó
+    // applies to everything
     const cp4: any = await payload.create({
       collection: 'closure-periods',
       data: { name: 'Alles zu', startsOn: day, endsOn: day, note: TEST_NOTE },
@@ -431,7 +432,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Nach Entfernen der Schliessung wieder buchbar', (await isClosed(payload, s)) === null)
   })
 
-  await section("lemondás", async () => {
+  await section("cancellation", async () => {
     const u = await mkCustomer(c); const a = await mkAbo(c, u, { credits: 5 })
     const s = await mkSession(c, { hours: 72 })
     const r = await createBooking(payload, u.id, s.id)
@@ -459,7 +460,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Fremde Buchung kann nicht storniert werden', !res.ok, why(res))
   }
 
-  await section("lemondás után a hely újra kiadható", async () => {
+  await section("after a cancellation the spot can be given out again", async () => {
     const u1 = await mkCustomer(c); await mkAbo(c, u1)
     const u2 = await mkCustomer(c); await mkAbo(c, u2)
     const s = await mkSession(c)
@@ -471,7 +472,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Nach Stornierung ist das Gerät wieder frei', r2.ok, why(r2))
   })
 
-  await section("nem létező azonosítók", async () => {
+  await section("non-existent ids", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const r = await createBooking(payload, u.id, 999999)
     add('Nicht existierende Lektion wird abgewiesen', !r.ok)
@@ -479,9 +480,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Nicht existierende Buchung wird abgewiesen', !res.ok)
   })
 
-  // ------------------------------------------------ lépcsőzetes várólista
+  // ------------------------------------------------ sliding waitlist
 
-  await section("ajánlati ablak lépcsői", async () => {
+  await section("the steps of the offer window", async () => {
     const w = DEFAULT_WAITLIST_WINDOWS
     const at = (h: number) => offerMinutesFor(w, new Date(Date.now() + h * 36e5))
     add('Mehr als 48h vorher: 12 Stunden Frist', at(72) === 720, `${at(72)}`)
@@ -491,14 +492,14 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Frist wird kürzer, je näher die Lektion', at(72) > at(20) && at(20) > at(5))
   })
 
-  await section("várólista csak tele óránál", async () => {
+  await section("waitlist only on a full class", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c)
     const r = await joinWaitlist(payload, u.id, s.id)
     add('Warteliste abgelehnt, solange Plätze frei sind', !r.ok, why(r))
   })
 
-  await section("feliratkozás, sorrend, kilépés", async () => {
+  await section("joining, ordering, leaving", async () => {
     const s = await mkSession(c)
     await fillSession(c, s)
     const a = await mkCustomer(c); await mkAbo(c, a)
@@ -515,7 +516,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Fremder Eintrag kann nicht abgemeldet werden', !foreign.ok, foreign.reason)
   })
 
-  await section("lemondás után kiajánlás az elsőnek", async () => {
+  await section("after a cancellation the first in line is offered the spot", async () => {
     const s = await mkSession(c, { hours: 72 })
     const booked = await fillSession(c, s)
     const w1 = await mkCustomer(c); await mkAbo(c, w1)
@@ -546,7 +547,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Eingelöster Eintrag gilt als gebucht', entry.status === 'converted', entry.status)
   })
 
-  await section("lejárt ajánlat a következőre száll", async () => {
+  await section("an expired offer passes to the next person", async () => {
     const s = await mkSession(c, { hours: 72 })
     const booked = await fillSession(c, s)
     const w1 = await mkCustomer(c); await mkAbo(c, w1)
@@ -557,7 +558,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const p = await promoteWaitlist(payload, s.id)
     add('Angebot an die erste Person', p.kind === 'offered')
 
-    // az ajánlatot lejártnak állítjuk, mintha eltelt volna az ablak
+    // mark the offer as expired, as if the window had run out
     await payload.update({
       collection: 'waitlist-entries', id: e1.entryId,
       data: { offerExpiresAt: new Date(Date.now() - 60000).toISOString() },
@@ -576,7 +577,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Nach Fristablauf kein Zugriff mehr', !late.ok, why(late))
   })
 
-  await section("lock-ablakon belül mindenki foglalhat", async () => {
+  await section("inside the lock window everyone may book", async () => {
     const s = await mkSession(c, { hours: 3 })
     const booked = await fillSession(c, s)
     const w1 = await mkCustomer(c); await mkAbo(c, w1)
@@ -584,30 +585,31 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const storno = await cancelBooking(payload, booked[0].userId, booked[0].bookingId)
 
     /*
-     * Az előfeltételeket külön állítjuk. 2026-10-28-án ez az eset egyszer
-     * elbukott, másodszorra átment, és az `r.kind` önmagában nem árulta el,
-     * melyik lépés romlott el. Így legközelebb a bukó sor megmondja.
+     * The preconditions are asserted separately. On 2026-10-28 this
+     * case failed once and passed on the retry, and `r.kind` alone did
+     * not reveal which step had gone wrong. Now the failing assertion
+     * will say so next time.
      */
-    add('Előfeltétel: az óra megtelt', booked.length > 0 && belep.ok,
+    add('Precondition: the class filled up', booked.length > 0 && belep.ok,
       `${booked.length} foglalás, várólista: ${why(belep) || 'ok'}`)
-    add('Előfeltétel: a lemondás sikerült', storno.ok, storno.reason)
+    add('Precondition: the cancellation succeeded', storno.ok, storno.reason)
     const szabad = (await getAvailability(payload, s.id)).filter((x) => x.status === 'free')
-    add('Előfeltétel: a lemondás után van szabad gép', szabad.length === 1, `${szabad.length}`)
+    add('Precondition: a machine is free after the cancellation', szabad.length === 1, `${szabad.length}`)
     const varo = await payload.find({
       collection: 'waitlist-entries',
       where: { and: [{ session: { equals: s.id } }, { status: { equals: 'waiting' } }] },
       limit: 5, depth: 0,
     })
-    add('Előfeltétel: pontosan egy ember vár', varo.totalDocs === 1, `${varo.totalDocs}`)
+    add('Precondition: exactly one person is waiting', varo.totalDocs === 1, `${varo.totalDocs}`)
 
-    // 30 perccel az óra előtt már nincs egyéni ajánlat
+    // 30 minutes before the class there is no individual offer any more
     const soon = new Date(new Date(s.startsAt).getTime() - 30 * 60000)
     const r = await promoteWaitlist(payload, s.id, soon)
     add('Kurz vor Beginn wird der Platz für alle freigegeben', r.kind === 'released',
       `${r.kind}${r.kind === 'nothing' ? ': ' + (r as { reason?: string }).reason : ''}`)
   })
 
-  await section("ajánlat nem nyúlik túl a lock-ablakon", async () => {
+  await section("an offer never reaches past the lock window", async () => {
     const s = await mkSession(c, { hours: 14 })
     const booked = await fillSession(c, s)
     const w = await mkCustomer(c); await mkAbo(c, w)
@@ -619,7 +621,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Angebotsfrist endet spätestens im Sperrfenster', ok)
   })
 
-  await section("söprés: a szabaddá vált hely kiajánlása ütemezőből", async () => {
+  await section("sweeping: a freed-up spot is offered from the scheduler", async () => {
     const s = await mkSession(c, { hours: 72 })
     const booked = await fillSession(c, s)
     const w = await mkCustomer(c); await mkAbo(c, w)
@@ -628,8 +630,8 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const idle = await sweepOpenSpots(payload)
     add('Bei voller Lektion bietet der Sweep nichts an', idle.promoted === 0, `${idle.promoted}`)
 
-    // A gépet közvetlenül szabadítjuk fel, kiajánlás nélkül — mintha
-    // az admin törölte volna a foglalást, vagy a kiajánlás hibára futott.
+    // Free the machine directly, without offering it — as if an admin
+    // had deleted the booking, or the offer attempt had failed.
     await payload.update({
       collection: 'bookings', id: booked[0].bookingId,
       data: { status: 'cancelled', cancelledAt: new Date().toISOString() },
@@ -644,9 +646,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Der nächste Tick bietet nicht doppelt an', again.promoted === 0, `${again.promoted}`)
   })
 
-  // ------------------------------------------------ jelenlét és no-show
+  // ------------------------------------------------ attendance and no-shows
 
-  await section("no-show és késői lemondás külön tény", async () => {
+  await section("a no-show and a late cancellation are separate facts", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u, { credits: 5 })
     const late = await mkSession(c, { hours: 3 })
     const rl = await createBooking(payload, u.id, late.id)
@@ -661,13 +663,13 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Rechtzeitig storniert wird als «rechtzeitig» erfasst', bi.cancellationType === 'in_time', bi.cancellationType)
   })
 
-  await section("óra lezárása: aki be volt jelentkezve, az megjelent", async () => {
+  await section("closing a class: whoever booked counts as present", async () => {
     const s = await mkSession(c, { hours: 2 })
     const made = await fillSession(c, s)
     const early = await closeSession(payload, s.id)
     add('Noch nicht begonnene Lektion kann nicht geschlossen werden', !early.ok, early.reason)
 
-    // Az oktató CSAK a hiányzót jelöli meg — ez az egyetlen dolga.
+    // The instructor marks ONLY the absentee — that is their entire job here.
     await payload.update({
       collection: 'sessions', id: s.id,
       data: { startsAt: new Date(Date.now() - 2 * 36e5).toISOString() },
@@ -688,26 +690,25 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const again = await closeSession(payload, s.id)
     add('Erneutes Schliessen ändert nichts mehr', again.ok && again.marked === 0, `${again.marked}`)
 
-    // A megjelölés visszavonható: elkattintani bárki el tud.
+    // The mark can be undone: anyone can misclick.
     const vissza = await markAttendance(payload, made[0].bookingId, 'attended')
     add('Markierung lässt sich zurücknehmen', vissza.ok, vissza.reason)
   })
 
-  await section("lezáratlan óra magától lezárul", async () => {
+  await section("an unclosed class closes itself", async () => {
     const s = await mkSession(c, { hours: 2 })
     const made = await fillSession(c, s)
 
-    // Friss, lement óra: az oktatónak még van ideje jelölni.
+    // A class that just finished: the instructor still has time to mark it.
     await payload.update({
       collection: 'sessions', id: s.id,
       data: { startsAt: new Date(Date.now() - 1 * 36e5).toISOString() },
     })
     /*
-     * Erre az egy órára nézünk, nem az összesített számra: az
-     * adatbázisban demó-órák is vannak, azokat ugyanez a hívás
-     * ugyanúgy lezárja, és egy globális darabszám bármikor
-     * elromolhatna tőlük. A teszt a szabályt ellenőrzi, nem a
-     * környezetet.
+     * We look at this one class, not at an aggregate count: the
+     * database also holds demo classes, which the same call closes in
+     * the same way, and a global count could break because of them at
+     * any time. The test checks the rule, not the environment.
      */
     const allapot = async () =>
       ((await payload.findByID({
@@ -718,7 +719,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Frisch vergangene Lektion bleibt vorerst offen',
       (await allapot()) === 'booked', await allapot())
 
-    // Másnapra viszont rendeződjön magától.
+    // By the next day, though, it should settle itself.
     await payload.update({
       collection: 'sessions', id: s.id,
       data: {
@@ -730,7 +731,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       (await allapot()) === 'attended', await allapot())
   })
 
-  await section("óra felvétele", async () => {
+  await section("creating a class", async () => {
     const holnap = new Date(Date.now() + 36 * 36e5)
     const nap = napKulcs(holnap)
 
@@ -772,7 +773,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Kundin als Trainerin wird abgewiesen', !nemOktato.ok, why(nemOktato))
   })
 
-  await section("óra törlése", async () => {
+  await section("deleting a class", async () => {
     const ures = await mkSession(c, { hours: 96 })
     const d1 = await deleteSession(payload, ures.id)
     add('Leere Lektion lässt sich löschen', d1.ok, why(d1))
@@ -801,9 +802,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Stornierte Buchung kann nicht auf anwesend gesetzt werden', !m.ok, m.reason)
   })
 
-  // ------------------------------------------------ ismétlődő órák
+  // ------------------------------------------------ recurring classes
 
-  await section("sorozat legenerálása", async () => {
+  await section("generating a series", async () => {
     const sr = await mkSeries(c, { weekday: '1', time: '09:00', weeks: 4 })
     const g = await generateSessions(payload, sr.id)
     add('Serie erzeugt Lektionen', g.created >= 3, `${g.created}`)
@@ -826,15 +827,15 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       [...times].join(','))
   })
 
-  await section("nyári időszámítás váltása", async () => {
-    // 2027-ben Svájcban március 28-án vált a nyári időszámítás.
-    const winter = zoneToUtc(2027, 3, 22, 9, 0) // hétfő, CET (UTC+1)
-    const summer = zoneToUtc(2027, 3, 29, 9, 0) // hétfő, CEST (UTC+2)
+  await section("the daylight saving change", async () => {
+    // In Switzerland in 2027, daylight saving begins on 28 March.
+    const winter = zoneToUtc(2027, 3, 22, 9, 0) // Monday, CET (UTC+1)
+    const summer = zoneToUtc(2027, 3, 29, 9, 0) // Monday, CEST (UTC+2)
     add('Vor der Zeitumstellung 09:00 = 08:00 UTC', winter.getUTCHours() === 8, `${winter.toISOString()}`)
     add('Nach der Zeitumstellung 09:00 = 07:00 UTC', summer.getUTCHours() === 7, `${summer.toISOString()}`)
   })
 
-  await section("ez és az összes jövőbeli", async () => {
+  await section("this and all future ones", async () => {
     const sr = await mkSeries(c, { weekday: '3', time: '18:00', weeks: 6 })
     await generateSessions(payload, sr.id)
     const kids = await payload.find({
@@ -844,7 +845,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Mindestens vier Lektionen für den Test', list.length >= 4, `${list.length}`)
     const pivot = list[1]
 
-    // új oktató, hogy látszódjon az átvitel
+    // a new instructor, so the propagation is visible
     const nina = await mkCustomer(c, 'Serien')
     await payload.update({ collection: 'users', id: nina.id, data: { role: 'instructor' } })
 
@@ -887,14 +888,14 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       pivotAfter.editScope === 'only_this', pivotAfter.editScope)
   })
 
-  await section("csak ez az óra: leszakad a sorozatról", async () => {
+  await section("this class only: it detaches from the series", async () => {
     const sr = await mkSeries(c, { weekday: '5', time: '07:30', weeks: 6 })
     await generateSessions(payload, sr.id)
     const list = (await payload.find({
       collection: 'sessions', where: { series: { equals: sr.id } }, sort: 'startsAt', limit: 50, depth: 0,
     })).docs as any[]
 
-    // a másodikat egyedileg elhalasztjuk
+    // postpone the second one individually
     await payload.update({
       collection: 'sessions', id: list[1].id,
       data: {
@@ -905,7 +906,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const detached: any = await payload.findByID({ collection: 'sessions', id: list[1].id, depth: 0 })
     add('Einzeln geänderte Lektion wird von der Serie gelöst', detached.detached === true)
 
-    // most a sorozat szintjén módosítunk az elsőről
+    // now change it at series level, from the first one
     await payload.update({
       collection: 'sessions', id: list[0].id,
       data: {
@@ -921,7 +922,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       new Date(third.startsAt).getTime() === new Date(list[2].startsAt).getTime() + 36e5)
   })
 
-  await section("sorozat-módosítás viszi magával a foglalásokat", async () => {
+  await section("a series change carries the bookings with it", async () => {
     const sr = await mkSeries(c, { weekday: '2', time: '10:00', weeks: 6 })
     await generateSessions(payload, sr.id)
     const list = (await payload.find({
@@ -946,9 +947,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       new Date(b.session.startsAt).getTime() === new Date(target.startsAt).getTime() + 90 * 60000)
   })
 
-  // ------------------------------------------------ értesítések
+  // ------------------------------------------------ notifications
 
-  await section("várólista-ajánlat levele", async () => {
+  await section("the waitlist offer email", async () => {
     const s = await mkSession(c, { hours: 72 })
     const booked = await fillSession(c, s)
     const w = await mkCustomer(c); await mkAbo(c, w)
@@ -965,7 +966,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Mail ist der Lektion zugeordnet', m[0] && (typeof m[0].session === 'object' ? m[0].session.id : m[0].session) === s.id)
   })
 
-  await section("lock-ablakon belüli felszabadítás levele", async () => {
+  await section("the release email inside the lock window", async () => {
     const s = await mkSession(c, { hours: 3 })
     const booked = await fillSession(c, s)
     const w1 = await mkCustomer(c); await mkAbo(c, w1)
@@ -980,7 +981,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       (await mails(c, w2.id, 'waitlist_released')).length === 1)
   })
 
-  await section("időpont-változás értesítése", async () => {
+  await section("notification of a time change", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c, { hours: 96 })
     await createBooking(payload, u.id, s.id)
@@ -1004,7 +1005,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Mail erklärt die Stornomöglichkeit', m[0]?.body.includes('24 Stunden'))
   })
 
-  await section("oktatóváltás értesítése", async () => {
+  await section("notification of an instructor change", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c, { hours: 96 })
     await createBooking(payload, u.id, s.id)
@@ -1016,7 +1017,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Mail nennt die neue Trainerin', m[0]?.body.includes('Vertretung'))
   })
 
-  await section("lemondott foglalás nem kap értesítést", async () => {
+  await section("a cancelled booking gets no notification", async () => {
     const u1 = await mkCustomer(c); await mkAbo(c, u1)
     const u2 = await mkCustomer(c); await mkAbo(c, u2)
     const s = await mkSession(c, { hours: 96 })
@@ -1031,7 +1032,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Wer gebucht hat, erhält die Information', (await mails(c, u2.id, 'session_changed')).length === 1)
   })
 
-  await section("sorozat-módosítás értesíti az érintett órák foglalóit", async () => {
+  await section("a series change notifies the people booked into the affected classes", async () => {
     const sr = await mkSeries(c, { weekday: '4', time: '08:00', weeks: 6 })
     await generateSessions(payload, sr.id)
     const list = (await payload.find({
@@ -1054,9 +1055,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Spätere Lektion: Mail verschickt', (await mails(c, later.id, 'session_changed')).length === 1)
   })
 
-  // ------------------------------------------------ stúdió-oldali lemondás
+  // ------------------------------------------------ cancellation by the studio
 
-  await section("stúdió lemondja az órát", async () => {
+  await section("the studio cancels the class", async () => {
     const s = await mkSession(c, { hours: 3 })
     const made = await fillSession(c, s)
     const before = await Promise.all(made.map(async (m) => {
@@ -1092,7 +1093,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Erneute Absage bucht nichts doppelt zurück', again.ok && again.refunded === 0, `${again.refunded}`)
   })
 
-  await section("lemondás törli a várólistát is", async () => {
+  await section("cancelling withdraws the waitlist too", async () => {
     const s = await mkSession(c, { hours: 48 })
     await fillSession(c, s)
     const w = await mkCustomer(c); await mkAbo(c, w)
@@ -1102,7 +1103,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Wartelisteneintrag wird zurückgezogen', entry.status === 'withdrawn', entry.status)
   })
 
-  await section("túl kevés jelentkező (AGB: minimum 2)", async () => {
+  await section("too few participants (minimum 2)", async () => {
     const full = await mkSession(c, { hours: 48 })
     await fillSession(c, full)
     const no = await cancelForTooFewParticipants(payload, full.id, 2)
@@ -1124,9 +1125,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       r2.ok && r2.cancelled === 0 && r2.notified === 0)
   })
 
-  // ------------------------------------------------ abo-megrendelés fizetés nélkül
+  // ------------------------------------------------ ordering a pass without payment
 
-  await section("tarifa-jogosultság", async () => {
+  await section("rate eligibility", async () => {
     const now = new Date('2026-06-15T00:00:00Z')
     add('24 Jahre ist noch Young Member', isYoungMember(2002, now))
     add('16 Jahre ist Young Member', isYoungMember(2010, now))
@@ -1137,7 +1138,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Ohne beides nicht berechtigt', !qualifiesForReduced({ isMatCustomer: false }))
   })
 
-  await section("érvényesség számítása", async () => {
+  await section("computing validity", async () => {
     const from = new Date('2026-01-31T10:00:00Z')
     add('7 Monate werden addiert', expiryFrom(from, 7).getMonth() === 7)
     const short = expiryFrom(new Date('2026-03-01T10:00:00Z'), 0.25)
@@ -1146,7 +1147,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       short.toISOString())
   })
 
-  await section("csak a jogosult látja a kedvezményes abo-t", async () => {
+  await section("only someone eligible sees the reduced pass", async () => {
     const plain = await mkCustomer(c)
     const young = await mkCustomer(c)
     await payload.update({ collection: 'users', id: young.id, data: { birthYear: new Date().getFullYear() - 20 } })
@@ -1162,7 +1163,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       `${forYoung.length} vs ${forPlain.length}`)
   })
 
-  await section("megrendelés nem engedélyez foglalást", async () => {
+  await section("an order does not enable booking", async () => {
     const u = await mkCustomer(c)
     const type = (await payload.find({
       collection: 'abo-types',
@@ -1193,7 +1194,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Zweite offene Bestellung wird abgewiesen', !twice.ok, why(twice))
   })
 
-  await section("fizetés visszaigazolása szabadítja fel", async () => {
+  await section("confirming the payment is what releases it", async () => {
     const u = await mkCustomer(c)
     const type = (await payload.find({
       collection: 'abo-types',
@@ -1225,7 +1226,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Zweite Freischaltung wird abgewiesen', !again.ok, again.reason)
   })
 
-  await section("megrendelés visszavonása", async () => {
+  await section("withdrawing an order", async () => {
     const u = await mkCustomer(c)
     const other = await mkCustomer(c)
     const type = (await payload.find({
@@ -1249,7 +1250,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Nach dem Zurückziehen ist eine neue Bestellung möglich', fresh.ok, why(fresh))
   })
 
-  await section("kedvezményes tarifa jogosultság nélkül", async () => {
+  await section("the reduced rate without eligibility", async () => {
     const u = await mkCustomer(c)
     const reduced = (await payload.find({
       collection: 'abo-types', where: { tier: { equals: 'reduced' } }, limit: 1, depth: 0,
@@ -1263,7 +1264,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     }
   })
 
-  await section("utalvány-abo csak utalvánnyal", async () => {
+  await section("a voucher pass only with a voucher", async () => {
     const voucher = (await payload.find({
       collection: 'abo-types', where: { voucherOnly: { equals: true } }, limit: 1, depth: 0,
     })).docs[0] as any
@@ -1278,9 +1279,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     }
   })
 
-  // ------------------------------------------------ az óra nyelve
+  // ------------------------------------------------ the language of a class
 
-  await section("a nyelv az oktatótól öröklődik", async () => {
+  await section("the language is inherited from the instructor", async () => {
     const en = await mkCustomer(c, 'NurEnglisch')
     await payload.update({
       collection: 'users', id: en.id,
@@ -1302,7 +1303,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const loaded2: any = await payload.findByID({ collection: 'sessions', id: s2.id, depth: 1 })
     add('Zweisprachige Trainerin ergibt DE/EN', languageLabel(loaded2) === 'DE/EN', languageLabel(loaded2))
 
-    // Az oktató nyelvének módosítása átüt az összes óráján
+    // Changing an instructor's languages carries to all their classes
     await payload.update({
       collection: 'users', id: en.id, data: { teachingLanguages: ['de', 'en'] },
     })
@@ -1311,7 +1312,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       languageLabel(after) === 'DE/EN', languageLabel(after))
   })
 
-  await section("egy óra nyelve felülírható", async () => {
+  await section("a class's language can be overridden", async () => {
     const both = await mkCustomer(c, 'Beides')
     await payload.update({
       collection: 'users', id: both.id,
@@ -1326,14 +1327,14 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Eigene Sprache der Lektion gilt vor der Trainerin',
       languageLabel(loaded) === 'EN', languageLabel(loaded))
 
-    // Üresre állítva ismét az oktató nyelvei érvényesek
+    // Set back to empty, the instructor's languages apply again
     await payload.update({ collection: 'sessions', id: s.id, data: { languages: [] } })
     const back: any = await payload.findByID({ collection: 'sessions', id: s.id, depth: 1 })
     add('Leer gelassen gelten wieder die Sprachen der Trainerin',
       languageLabel(back) === 'DE/EN', languageLabel(back))
   })
 
-  await section("hiányzó nyelv nem borít fel semmit", async () => {
+  await section("a missing language breaks nothing", async () => {
     const none = await mkCustomer(c, 'OhneSprache')
     await payload.update({ collection: 'users', id: none.id, data: { role: 'instructor' } })
     const s = await mkSession(c)
@@ -1344,110 +1345,110 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('Keine Sprache verhindert die Buchung nicht', true)
   })
 
-  await section("az órák 60 percesek", async () => {
+  await section("classes are 60 minutes", async () => {
     const s = await mkSession(c)
     add('Neue Lektion dauert 60 Minuten', s.durationMinutes === 60, `${s.durationMinutes}`)
   })
 
-  // ------------------------------------------------ naptár
+  // ------------------------------------------------ calendar
 
-  await section("naptár: napok és hetek", async () => {
-    add('A hét hétfővel kezdődik', hetNapja('2026-10-26') === 0, `${hetNapja('2026-10-26')}`)
-    add('Vasárnap a hét vége', hetNapja('2026-11-01') === 6, `${hetNapja('2026-11-01')}`)
-    add('Csütörtök hetének hétfője', hetKezdete('2026-10-29') === '2026-10-26', hetKezdete('2026-10-29'))
-    add('Vasárnap még az előző hétfőhöz tartozik',
+  await section("calendar: days and weeks", async () => {
+    add('The week starts on Monday', hetNapja('2026-10-26') === 0, `${hetNapja('2026-10-26')}`)
+    add('Sunday is the end of the week', hetNapja('2026-11-01') === 6, `${hetNapja('2026-11-01')}`)
+    add('The Monday of the week a Thursday falls in', hetKezdete('2026-10-29') === '2026-10-26', hetKezdete('2026-10-29'))
+    add('Sunday still belongs to the previous Monday',
       hetKezdete('2026-11-01') === '2026-10-26', hetKezdete('2026-11-01'))
-    add('Hónapforduló átlépése', napPlusz('2026-10-31', 1) === '2026-11-01', napPlusz('2026-10-31', 1))
-    add('Évforduló átlépése visszafelé',
+    add('Crossing a month boundary', napPlusz('2026-10-31', 1) === '2026-11-01', napPlusz('2026-10-31', 1))
+    add('Crossing a year boundary backwards',
       napPlusz('2027-01-01', -1) === '2026-12-31', napPlusz('2027-01-01', -1))
-    add('Szökőév februárja 29 napos', honapHossza('2028-02-10') === 29, `${honapHossza('2028-02-10')}`)
-    add('Nem szökőév februárja 28', honapHossza('2026-02-10') === 28, `${honapHossza('2026-02-10')}`)
+    add('February in a leap year has 29 days', honapHossza('2028-02-10') === 29, `${honapHossza('2028-02-10')}`)
+    add('February in a non-leap year has 28', honapHossza('2026-02-10') === 28, `${honapHossza('2026-02-10')}`)
   })
 
-  await section("naptár: a nézetek napjai", async () => {
-    add('A napi nézet egy napból áll', naptarNapjai('nap', '2026-10-29').length === 1)
+  await section("calendar: the days in each view", async () => {
+    add('The day view consists of one day', naptarNapjai('nap', '2026-10-29').length === 1)
     const het = naptarNapjai('het', '2026-10-29')
-    add('A heti nézet hét napból áll', het.length === 7, `${het.length}`)
-    add('A hét hétfőn kezdődik és vasárnap végződik',
+    add('The week view consists of seven days', het.length === 7, `${het.length}`)
+    add('The week starts on Monday and ends on Sunday',
       het[0] === '2026-10-26' && het[6] === '2026-11-01', `${het[0]} … ${het[6]}`)
 
     const honap = naptarNapjai('honap', '2026-10-15')
-    add('A havi rács teljes heteket ad', honap.length % 7 === 0, `${honap.length}`)
-    add('A havi rács hétfővel kezdődik', hetNapja(honap[0]) === 0)
-    add('Az október 1. benne van', honap.includes('2026-10-01'))
-    add('Az október 31. benne van', honap.includes('2026-10-31'))
-    add('A rács eleje az előző hónapba nyúlik',
+    add('The month grid returns whole weeks', honap.length % 7 === 0, `${honap.length}`)
+    add('The month grid starts on Monday', hetNapja(honap[0]) === 0)
+    add('1 October is included', honap.includes('2026-10-01'))
+    add('31 October is included', honap.includes('2026-10-31'))
+    add('The start of the grid reaches into the previous month',
       !azonosHonap(honap[0], '2026-10-15') || honap[0] === '2026-10-01', honap[0])
   })
 
-  await section("naptár: időhatárok a nyári időszámítás körül", async () => {
-    // 2026-ban Svájcban október 25-én áll vissza a téli időszámítás.
+  await section("calendar: time bounds around the daylight saving change", async () => {
+    // In Switzerland in 2026, clocks go back on 25 October.
     const nyar = naptarHatarok('nap', '2026-10-20')
-    add('Nyári időszámításban a nap 22:00 UTC-kor kezdődik',
+    add('In summer time the day starts at 22:00 UTC',
       nyar.tol.endsWith('T22:00:00.000Z'), nyar.tol)
     const tel = naptarHatarok('nap', '2026-11-10')
-    add('Téli időszámításban 23:00 UTC-kor',
+    add('In winter time, at 23:00 UTC',
       tel.tol.endsWith('T23:00:00.000Z'), tel.tol)
-    add('A nap vége a következő nap kezdete',
+    add('The end of a day is the start of the next',
       new Date(tel.ig).getTime() - new Date(tel.tol).getTime() === 24 * 36e5,
-      `${(new Date(tel.ig).getTime() - new Date(tel.tol).getTime()) / 36e5} óra`)
+      `${(new Date(tel.ig).getTime() - new Date(tel.tol).getTime()) / 36e5} hours`)
 
-    // Az óraátállítás napja 25 órás
+    // The day the clocks change is 25 hours long
     const atallas = naptarHatarok('nap', '2026-10-25')
     const orak = (new Date(atallas.ig).getTime() - new Date(atallas.tol).getTime()) / 36e5
-    add('Az óraátállítás napja 25 órás', orak === 25, `${orak} óra`)
+    add('The day the clocks change is 25 hours long', orak === 25, `${orak} hours`)
   })
 
-  await section("naptár: a lekérdezés a dátumsávot is lefedi", async () => {
-    // Napi nézetben a sáv a teljes hetet mutatja, és jelzi, mely
-    // napokon van óra — ehhez a hét adata is kell, nem csak a napé.
+  await section("calendar: the query also covers the date strip", async () => {
+    // In day view the strip shows the whole week and marks which days
+    // have classes — which needs the week's data, not just the day's.
     const napi = naptarLekerdezes('nap', '2026-10-29')
     const het = naptarHatarok('het', '2026-10-29')
-    add('Napi nézet a teljes hetet kérdezi le',
+    add('The day view queries the whole week',
       napi.tol === het.tol && napi.ig === het.ig, `${napi.tol} … ${napi.ig}`)
 
-    // Havi nézetben a hónap a tágabb, azt nem szabad összehúzni.
+    // In month view the month is the wider range, and must not be narrowed.
     const havi = naptarLekerdezes('honap', '2026-10-15')
     const honap = naptarHatarok('honap', '2026-10-15')
-    add('Havi nézet megtartja a hónap határait',
+    add('The month view keeps the bounds of the month',
       havi.tol === honap.tol && havi.ig === honap.ig, `${havi.tol} … ${havi.ig}`)
 
-    // Hónap elején a sáv heté az előző hónapba nyúlhat.
+    // At the start of a month the strip's week can reach into the previous one.
     const elsejen = naptarLekerdezes('nap', '2026-11-01')
-    add('A sáv hete akkor is belefér, ha átnyúlik a hónapon',
+    add('The week of the strip still fits even when it crosses the month',
       new Date(elsejen.tol) <= new Date(naptarHatarok('het', '2026-11-01').tol))
   })
 
-  await section("naptár: lapozás", async () => {
-    add('Napi lapozás', naptarLepes('nap', '2026-10-29', 1) === '2026-10-30')
-    add('Heti lapozás', naptarLepes('het', '2026-10-29', 1) === '2026-11-05')
-    add('Havi lapozás előre', naptarLepes('honap', '2026-10-15', 1) === '2026-11-01')
-    add('Havi lapozás visszafelé', naptarLepes('honap', '2026-01-15', -1) === '2025-12-01')
-    add('Havi lapozás a hónap elejére ugrik, nem a 15-ére',
+  await section("calendar: paging", async () => {
+    add('Paging by day', naptarLepes('nap', '2026-10-29', 1) === '2026-10-30')
+    add('Paging by week', naptarLepes('het', '2026-10-29', 1) === '2026-11-05')
+    add('Paging a month forward', naptarLepes('honap', '2026-10-15', 1) === '2026-11-01')
+    add('Paging a month back', naptarLepes('honap', '2026-01-15', -1) === '2025-12-01')
+    add('Paging by month jumps to the first, not the 15th',
       naptarLepes('honap', '2026-10-15', 1).endsWith('-01'))
   })
 
-  await section("naptár: hibás bemenet nem borítja fel", async () => {
+  await section("calendar: bad input does not break it", async () => {
     const maKulcs = napKulcsVagyMa(undefined)
-    add('Hiányzó dátum helyett a mai nap', /^\d{4}-\d{2}-\d{2}$/.test(maKulcs), maKulcs)
-    add('Értelmetlen szöveg helyett a mai nap', napKulcsVagyMa('tegnap') === maKulcs)
-    add('Nem létező dátum helyett a mai nap', napKulcsVagyMa('2026-02-30') === maKulcs)
-    add('Érvényes dátum megmarad', napKulcsVagyMa('2026-10-29') === '2026-10-29')
-    add('Ismeretlen nézet helyett heti', naptarMod('zöldség') === 'het')
-    add('Ismert nézet megmarad', naptarMod('honap') === 'honap')
+    add('A missing date falls back to today', /^\d{4}-\d{2}-\d{2}$/.test(maKulcs), maKulcs)
+    add('Nonsense text falls back to today', napKulcsVagyMa('tegnap') === maKulcs)
+    add('A non-existent date falls back to today', napKulcsVagyMa('2026-02-30') === maKulcs)
+    add('A valid date is kept', napKulcsVagyMa('2026-10-29') === '2026-10-29')
+    add('An unknown view falls back to the week', naptarMod('zöldség') === 'het')
+    add('A known view is kept', naptarMod('honap') === 'honap')
   })
 
-  await section("naptár: az óra a helyes napra esik", async () => {
-    // Egy 00:30-kor kezdődő svájci óra UTC-ben még az előző napon van.
+  await section("calendar: a class lands on the correct day", async () => {
+    // A Swiss class starting at 00:30 is still on the previous day in UTC.
     const ejfelUtan = zoneToUtc(2026, 11, 10, 0, 30)
-    add('Éjfél utáni óra a saját napjára esik',
+    add('A class just after midnight lands on its own day',
       napKulcs(ejfelUtan) === '2026-11-10', napKulcs(ejfelUtan))
     const estiOra = zoneToUtc(2026, 11, 10, 23, 30)
-    add('Késő esti óra is a saját napjára esik',
+    add('A late evening class lands on its own day too',
       napKulcs(estiOra) === '2026-11-10', napKulcs(estiOra))
   })
 
-  await section("vendég profilja: múlt, jövő, elérhetőség", async () => {
+  await section("customer profile: past, future, contact details", async () => {
     const u = await mkCustomer(c, 'Profil')
     await mkAbo(c, u, { credits: 4 })
     await payload.update({
@@ -1455,15 +1456,16 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       data: { phone: '079 000 00 00', healthNotes: 'TEST Rücken' },
     })
 
-    // Egy óra, amin már ott volt. A foglalás a jövőben készül, aztán az
-    // óra a múltba kerül — a valóságban is így történik: eltelik az idő.
+    // A class they already attended. The booking is made in the
+    // future, then the class moves into the past — which is how it
+    // happens in reality: time passes.
     const volt = await mkSession(c, { hours: 48 })
     const r1 = await createBooking(payload, u.id, volt.id)
     const mult = new Date(Date.now() - 48 * 36e5).toISOString()
     await payload.update({ collection: 'sessions', id: volt.id, data: { startsAt: mult } })
     if (r1.ok) await markAttendance(payload, r1.bookingId, 'attended')
 
-    // Egy óra, amire jön, és egy, amit lemondott.
+    // One class they are coming to, and one they cancelled.
     const jon = await mkSession(c, { hours: 72 })
     await createBooking(payload, u.id, jon.id)
     const lemondott = await mkSession(c, { hours: 96 })

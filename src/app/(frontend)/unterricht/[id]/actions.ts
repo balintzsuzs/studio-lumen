@@ -12,9 +12,9 @@ const idOf = (v: unknown): number =>
   typeof v === 'object' && v !== null ? (v as { id: number }).id : (v as number)
 
 /**
- * Jogosultság: csak a saját órájához, az admin mindhez.
- * Minden művelet ezen megy át, hogy ne lehessen kézzel írt
- * form-adattal más órájához hozzászólni.
+ * Authorisation: only to your own class, an admin to all of them.
+ * Every operation goes through this, so hand-written form data cannot
+ * be used to interfere with somebody else's class.
  */
 const authorize = async (sessionId: number) => {
   const user = await getCurrentUser()
@@ -28,8 +28,8 @@ const authorize = async (sessionId: number) => {
   } catch {
     redirect('/unterricht')
   }
-  // Bármelyik oktató dolgozhat bármelyik órán: jelenlétet vehet fel és
-  // le is mondhatja. Négyen vannak, és beugranak egymás helyett.
+  // Any instructor may work on any class: take attendance and cancel
+  // it too. There are four of them and they cover for each other.
   return { payload, user, session }
 }
 
@@ -46,7 +46,7 @@ export async function setAttendance(formData: FormData) {
 
   const { payload } = await authorize(sessionId)
 
-  // A foglalásnak ehhez az órához kell tartoznia.
+  // The booking has to belong to this class.
   let booking: any
   try {
     booking = await payload.findByID({ collection: 'bookings', id: bookingId, depth: 0 })
@@ -95,9 +95,10 @@ export async function cancelTooFew(formData: FormData) {
 }
 
 /**
- * Óra törlése. Csak admin, és csak ha senki nincs rajta — ahol van
- * jelentkező, ott a lemondás a helyes eszköz, mert az visszatérít és
- * értesít. A szabályt a `deleteSession` tartja be, ez csak a jogot.
+ * Deleting a class. Admin only, and only when nobody is on it — where
+ * there are participants, cancelling is the right tool, because it
+ * refunds and notifies. `deleteSession` enforces that rule; this only
+ * enforces the permission.
  */
 export async function deleteLesson(formData: FormData) {
   const sessionId = Number(formData.get('sessionId'))

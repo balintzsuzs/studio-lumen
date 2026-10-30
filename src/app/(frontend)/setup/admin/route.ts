@@ -2,8 +2,8 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 
 /**
- * Létrehozza az első admin felhasználót, ha még nincs egy sem.
- * Csak ALLOW_SEED=true mellett fut.
+ * Creates the first admin user, if there is not one yet.
+ * Runs only with ALLOW_SEED=true.
  *
  *   curl -X POST http://localhost:3000/setup/admin \
  *     -H 'content-type: application/json' \

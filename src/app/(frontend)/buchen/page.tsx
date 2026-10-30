@@ -22,8 +22,8 @@ export default async function Schedule({ searchParams }: { searchParams: Search 
   const lang = await getLang(user)
   const t = forditó(lang)
 
-  // A várólista-ajánlatok lejáratása és kiajánlása itt kap ütemet,
-  // mert a Vercel ingyenes csomagján a cron naponta csak egyszer fut.
+  // Expiring and issuing waitlist offers gets its beat here, because
+  // on Vercel's free plan the cron runs only once a day.
   await maybeTick(payload)
 
   const mod = naptarMod(ansicht)
@@ -33,9 +33,10 @@ export default async function Schedule({ searchParams }: { searchParams: Search 
   const studios = await payload.find({ collection: 'studios', limit: 10, depth: 0, sort: 'city' })
 
   /*
-   * A naptár a megjelenített időszakot kérdezi le, nem a „következő
-   * százat”. A lemondott és a már lement órák is benne vannak, csak
-   * halványan — különben a vendég hiába keresné, hova tűnt egy óra.
+   * The calendar queries the period being displayed, not "the next
+   * hundred". Cancelled and finished classes are included too, just
+   * dimmed — otherwise a customer would hunt in vain for a class that
+   * seems to have vanished.
    */
   const and: Where[] = [
     { startsAt: { greater_than_equal: tol } },
@@ -54,9 +55,10 @@ export default async function Schedule({ searchParams }: { searchParams: Search 
   )
 
   /*
-   * Oktató és admin számára az órarend nem foglalási felület: ők nem
-   * helyet keresnek, hanem azt nézik, ki jön. A sorok ezért a stúdió
-   * nézetébe visznek — ugyanaz az óra, csak a munkájukhoz való oldala.
+   * For an instructor or an admin the schedule is not a booking
+   * screen: they are not looking for a spot, they are looking at who
+   * is coming. So the rows lead into the studio view — the same class,
+   * seen from the side that matches their job.
    */
   const stab = user?.role === 'instructor' || user?.role === 'admin'
 
@@ -81,8 +83,8 @@ export default async function Schedule({ searchParams }: { searchParams: Search 
             : t('naptar.frei', { db: tt.szabad }),
       telt: Boolean(tt && tt.szabad === 0) && !lemondva,
       lemondva: lemondva || elmult,
-      // Lemondott és lement óránál nincs mit foglalni, ott a gomb csak
-      // félrevezetne.
+      // There is nothing to book on a cancelled or finished class, and
+      // the button would only mislead.
       gomb: stab
         ? t('naptar.ansehen')
         : lemondva || elmult ? undefined : t('naptar.buchen'),

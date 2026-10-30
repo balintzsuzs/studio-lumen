@@ -3,8 +3,9 @@ import config from '@payload-config'
 import { seed } from '@/seed-data'
 
 /**
- * Egyszeri alapadat-felvétel a prototípushoz.
- * Csak akkor fut, ha a .env-ben ALLOW_SEED=true, hogy élesben ne legyen elérhető.
+ * One-off base-data seeding for the prototype.
+ * Runs only when ALLOW_SEED=true in .env, so it is unreachable in
+ * production.
  *
  *   curl -X POST http://localhost:3000/setup/seed
  */

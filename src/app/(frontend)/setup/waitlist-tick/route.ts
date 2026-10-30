@@ -3,9 +3,9 @@ import config from '@payload-config'
 import { runWaitlistTick } from '@/lib/waitlist'
 
 /**
- * Lejárt várólista-ajánlatok elévültté tétele és a következő ember
- * kiajánlása. Élesben ezt egy percenkénti cron hívja (Vercel Cron);
- * a prototípusban kézzel:
+ * Expires waitlist offers that have run out and offers the spot to the
+ * next person. In production a per-minute cron calls this (Vercel
+ * Cron); in the prototype, by hand:
  *
  *   curl -X POST http://localhost:3000/setup/waitlist-tick
  */

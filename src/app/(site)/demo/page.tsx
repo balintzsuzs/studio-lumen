@@ -10,18 +10,19 @@ export const metadata = {
 }
 
 /**
- * Útmutató a demóhoz.
+ * The guide to the demo.
  *
- * Aki egy portfólió-linkről érkezik, a nyitólapon landolna, és magától
- * kellene kitalálnia, mit nézzen — a demó-adatról pedig azt hihetné,
- * hogy valódi ügyfelek. Ez a lap mindhármat megelőzi: megmondja, hogy
- * kitalált stúdió, ad két belépést, és sorban elvezet a lapokon.
+ * Someone arriving from a portfolio link would land on the home page
+ * and have to work out for themselves what to look at — and might take
+ * the demo data for real customers. This page heads off all three: it
+ * says the studio is fictional, hands over two logins, and walks the
+ * reader through the pages in order.
  *
- * Minden lépésnél ott a *miért*, nem csak a hol. Egy foglalórendszerben
- * a nehéz rész nem a képernyő, hanem a szabály mögötte.
+ * Every step carries the *why*, not just the where. In a booking
+ * system the hard part is not the screen but the rule behind it.
  *
- * Nem indexeljük (`robots: noindex`): ez a demó kísérőlapja, nem a
- * weboldal része.
+ * Not indexed (`robots: noindex`): this accompanies the demo, it is
+ * not part of the website.
  */
 export default async function DemoGuide() {
   const user = await getCurrentUser()

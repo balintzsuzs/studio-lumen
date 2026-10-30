@@ -23,9 +23,10 @@ export default async function SessionPage({
   const payload = await getPayload({ config })
   const user = await getCurrentUser()
   /*
-   * Oktató és admin a stúdió nézetébe megy. Ők nem foglalni jönnek:
-   * azt akarják látni, ki jelentkezett be és mik az óra részletei.
-   * A régi út (teremtérkép + „Buchen" gomb) nekik zsákutca volt.
+   * Instructors and admins go to the studio view. They are not here to
+   * book: they want to see who signed up and what the class's details
+   * are. The old path (floor plan plus a "Buchen" button) was a dead
+   * end for them.
    */
   if (user?.role === 'instructor' || user?.role === 'admin') {
     redirect(`/unterricht/${Number(id)}`)
@@ -57,14 +58,14 @@ export default async function SessionPage({
   const entry = user ? await getMyEntry(payload, user.id as number, Number(id)) : null
   const waitingCount = await countWaiting(payload, Number(id))
 
-  // Élő ajánlat: a sorban rá kerülő ember foglalhat, de csak a határig.
+  // A live offer: the person whose turn it is may book, but only until the deadline.
   const hasLiveOffer =
     entry?.status === 'offered' &&
     entry.offerExpiresAt &&
     new Date(entry.offerExpiresAt) > new Date()
 
-  // Mennyi ideje lenne válaszolni, ha most szabadulna fel hely —
-  // ezt mutatjuk a feliratkozás előtt, hogy ne érje váratlanul.
+  // How long they would have to respond if a spot opened up now — we
+  // show this before they join, so it does not catch them out.
   const windowMinutes = offerMinutesFor(settings.waitlistWindows, startsAt)
   const windowLabel =
     windowMinutes >= 120
@@ -168,9 +169,9 @@ export default async function SessionPage({
             </p>
           )}
           {user && !abo && (
-            // Zsákutca volt: a gomb nem aktív, de nem derült ki, merre
-            // tovább. Így a következő lépés ott van, ahol az ember
-            // elakad.
+            // It used to be a dead end: the button was disabled with
+            // no hint of where to go next. Now the next step is right
+            // where someone gets stuck.
             <p className="note">
               {t('ora.nincs_abo')} <Link href="/abos">{t('ora.abo_bestellen')}</Link>.
             </p>
@@ -185,11 +186,11 @@ export default async function SessionPage({
           )}
 
           {/*
-            Telt óránál nincs foglalás-gomb. Eddig ott állt szürkén, a
-            lemondási szabállyal együtt — egy gomb, amit nem lehet
-            megnyomni, és egy szabály, ami nem vonatkozik semmire. A
-            következő lépés ilyenkor a várólista, ami közvetlenül alatta
-            van; a szürke gomb csak elterelt róla.
+            A full class has no booking button. It used to sit there
+            greyed out, together with the cancellation rule — a button
+            that cannot be pressed, and a rule that applies to nothing.
+            The next step here is the waitlist, which is directly
+            below; the grey button only drew attention away from it.
           */}
           {(!full || hasLiveOffer) && (
             <>
@@ -208,7 +209,7 @@ export default async function SessionPage({
         </form>
       </section>
 
-      {/* Várólista: csak akkor jelenik meg, ha tényleg tele van az óra. */}
+      {/* The waitlist: shown only when the class really is full. */}
       {full && !isPast && session.status !== 'cancelled' && !closure && (
         <section className="waitlist">
           <h2>{t('ora.warteliste')}</h2>

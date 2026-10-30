@@ -6,14 +6,14 @@ import AngebotTabs from './components/AngebotTabs'
 export const dynamic = 'force-dynamic'
 
 /**
- * A Studio Lumen weboldal nyitólapja.
+ * The Studio Lumen website's home page.
  *
- * A jelölés a statikus `1_website_studio_lumen/index.html`-ből származik,
- * gépi átalakítással, hogy a jóváhagyott design pontosan megmaradjon.
- * A `site.css` is változatlan másolat. Csak három dolog más:
- * a navigáció közös komponens, ami tudja, hogy be vagy-e léptetve;
- * a foglalás a saját `/buchen` lapunkra megy, nem külső rendszerbe;
- * az Angebot fülei kliens komponensből kapcsolnak.
+ * The markup comes from a static HTML page, converted mechanically so
+ * the approved design survives exactly. `site.css` is an unchanged
+ * copy as well. Only three things differ: navigation is a shared
+ * component that knows whether you are signed in; booking goes to our
+ * own `/buchen` page rather than an external system; and the Angebot
+ * tabs are switched from a client component.
  */
 export default async function SitePage({
   searchParams,

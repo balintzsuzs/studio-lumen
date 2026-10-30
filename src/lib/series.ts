@@ -2,20 +2,22 @@ import 'server-only'
 import type { Payload, PayloadRequest } from 'payload'
 
 /**
- * Ismétlődő órák. A sorozat a szabály, a `sessions` rekordok a tények.
+ * Recurring classes. The series is the rule, the `sessions` records are
+ * the facts.
  *
- *  - `generateSessions` legenerálja a hiányzó órákat a sorozat időszakára
- *  - `propagateToFutureSessions` átviszi egy óra módosítását a sorozat
- *    többi, még jövőbeli és le nem szakított órájára
+ *  - `generateSessions` creates the missing classes across the series'
+ *    period
+ *  - `propagateToFutureSessions` carries a change on one class to the
+ *    series' other classes that are still in the future and not detached
  *
- * Az időpontot svájci helyi időből számoljuk, hogy a nyári időszámítás
- * váltásakor ne csússzon el egy órával ("minden hétfő 09:00" egész évben
- * 09:00 maradjon).
+ * Times are computed from Swiss local time so they do not slip by an
+ * hour at the daylight saving change ("every Monday 09:00" should stay
+ * 09:00 all year).
  */
 
 const ZONE = 'Europe/Zurich'
 
-/** A zóna eltolása percben az adott pillanatban. */
+/** The zone's offset in minutes at a given instant. */
 const zoneOffsetMinutes = (at: Date): number => {
   const f = new Intl.DateTimeFormat('en-US', {
     timeZone: ZONE, hour12: false,
@@ -31,11 +33,11 @@ const zoneOffsetMinutes = (at: Date): number => {
   return (asUtc - at.getTime()) / 60000
 }
 
-/** Svájci helyi dátum+idő → UTC pillanat. */
+/** Swiss local date and time → an instant in UTC. */
 export const zoneToUtc = (y: number, m: number, d: number, hh: number, mm: number): Date => {
   const naive = Date.UTC(y, m - 1, d, hh, mm)
   let guess = new Date(naive)
-  // Két kör elég: az első az eltolást adja, a második a DST-határt is kezeli.
+  // Two passes suffice: the first gives the offset, the second handles the DST boundary.
   for (let i = 0; i < 2; i++) guess = new Date(naive - zoneOffsetMinutes(guess) * 60000)
   return guess
 }
@@ -46,8 +48,8 @@ const idOf = (v: unknown): number =>
 export type GenerateResult = { created: number; skipped: number }
 
 /**
- * A sorozat minden érintett napjára létrehozza az órát, ha még nincs.
- * Újrafuttatható: a meglévőket érintetlenül hagyja.
+ * Creates the class on every day the series covers, where one does not
+ * exist yet. Re-runnable: it leaves existing ones untouched.
  */
 export const generateSessions = async (
   payload: Payload,
@@ -60,7 +62,7 @@ export const generateSessions = async (
   const from = new Date(series.startsOn)
   const to = new Date(series.endsOn)
 
-  // A sorozat már legenerált órái, hogy ne duplikáljunk.
+  // Classes the series has already generated, so we do not duplicate.
   const existing = await payload.find({
     collection: 'sessions',
     where: { series: { equals: seriesId } },
@@ -71,8 +73,8 @@ export const generateSessions = async (
   let created = 0
   let skipped = 0
 
-  // Napról napra lépünk a sorozat időszakán, UTC-ben számolt naptári
-  // napokkal, de az időpontot helyi időből képezzük.
+  // We step day by day through the series' period using calendar days
+  // computed in UTC, but build the time from local time.
   const cursor = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()))
   const last = Date.UTC(to.getUTCFullYear(), to.getUTCMonth(), to.getUTCDate())
 
@@ -109,11 +111,12 @@ export const generateSessions = async (
 }
 
 /**
- * A megadott óra módosítását átviszi a sorozat többi jövőbeli órájára.
+ * Carries a change on the given class to the series' other future
+ * classes.
  *
- * Átvitt mezők: óratípus, stúdió, oktató, hossz, napszak, állapot, hinweis.
- * A dátum nem: minden óra a saját napján marad, csak az időpontja igazodik.
- * Leszakított (`detached`) órákat nem ír át.
+ * Fields carried over: class type, studio, instructor, duration, time
+ * of day, status, note. Not the date: every class stays on its own day,
+ * only its time is aligned. Detached classes are never rewritten.
  */
 export const propagateToFutureSessions = async (
   payload: Payload,
@@ -136,7 +139,7 @@ export const propagateToFutureSessions = async (
     limit: 1000, depth: 0,
   })
 
-  // A forrás óra napszaka svájci helyi időben — ezt kapják a többiek is.
+  // The source class's time of day in Swiss local time — the others get this.
   const local = new Intl.DateTimeFormat('en-GB', {
     timeZone: ZONE, hour12: false, hour: '2-digit', minute: '2-digit',
   }).format(sourceStart)
@@ -168,8 +171,8 @@ export const propagateToFutureSessions = async (
     updated++
   }
 
-  // A sorozat szabálya is kövesse a változást, hogy a később generált
-  // órák ne a régi adatokkal készüljenek.
+  // The series rule should follow the change too, so that classes
+  // generated later are not built from the old values.
   await payload.update({
     collection: 'session-series',
     id: seriesId,
@@ -184,8 +187,8 @@ export const propagateToFutureSessions = async (
     req,
   })
 
-  // A forrás órán visszaállítjuk a hatókört, hogy a következő mentés
-  // ne terjesszen újra akaratlanul.
+  // Reset the scope on the source class, so the next save does not
+  // propagate again by accident.
   await payload.update({
     collection: 'sessions',
     id: source.id,

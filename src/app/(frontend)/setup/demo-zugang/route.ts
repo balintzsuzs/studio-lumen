@@ -2,25 +2,28 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 
 /**
- * A demó két belépése, a /demo útmutató lapon meghirdetve.
+ * The demo's two logins, advertised on the /demo guide page.
  *
- * Az ügyfél-fiók szándékosan NEM a tulajdonos oktatói fiókja: azt a
- * rendszer az óráihoz használja, és egy jelszóval kiküldött belépés
- * hozzáférést adna az oktatói nézethez is. Ez a fiók sima ügyfél,
- * kredittel — pont annyit lát, amennyit egy vendég.
+ * The customer account is deliberately NOT the owner's instructor
+ * account: the system uses that for her classes, and handing out a
+ * password for it would grant access to the instructor view as well.
+ * This account is an ordinary customer with credits — it sees exactly
+ * what a guest sees.
  *
  *   curl -X POST http://localhost:3000/setup/demo-zugang \
  *     -H 'content-type: application/json' -d '{"password":"..."}'
  *
- * Újrafuttatható: ha a fiók már van, csak a jelszót és a kreditet állítja.
+ * Re-runnable: if the account exists, it only resets the password and
+ * the credits.
  */
 const EMAIL = 'kundin@demo.studio-lumen.ch'
 
 /*
- * A stúdió-oldali fiók. Erre is kell jelszó, mert a demó lényege, hogy
- * MINDKÉT oldal látható legyen: amit az ügyfél lát, és amit a stúdió.
- * Ez a fiók admin jogú — a tulajdonosé: órát vesz fel és töröl,
- * abo-megrendelést szabadít fel, és mindenki foglalását látja.
+ * The studio-side account. It needs a password too, because the whole
+ * point of the demo is that BOTH sides are visible: what the customer
+ * sees, and what the studio sees. This account is an admin — it is the
+ * owner's: she creates and deletes classes, releases pass orders, and
+ * sees everybody's bookings.
  */
 const OKTATO_EMAIL = 'nadine@team.studio-lumen.ch'
 
@@ -59,7 +62,7 @@ export async function POST(request: Request) {
       })
     }
 
-    // Legyen min. 10 kredit, hogy ne akadjon el foglalás közben.
+    // At least 10 credits, so nothing stalls halfway through booking.
     const aboType: any = (await payload.find({
       collection: 'abo-types', where: { name: { equals: '10er Abo' } }, limit: 1, depth: 0,
     })).docs[0]
@@ -89,14 +92,15 @@ export async function POST(request: Request) {
     }
 
     /*
-     * A stúdió-oldali fiók. Jelszót kap, és ADMIN jogot.
+     * The studio-side account. It gets a password, and ADMIN rights.
      *
-     * Eddig oktatói jogú volt, abból a megfontolásból, hogy minél
-     * kevesebbhez férjen hozzá. Ez félreértés volt: a fiók a stúdió
-     * tulajdonosáé, nem beosztott oktatóé. Admin nélkül nem jut be a
-     * /verwaltung lapra, nem vehet fel és nem törölhet órát — vagyis
-     * épp azt nem lehetne kipróbálni, ami a legtöbbet elmondja: hogy
-     * a rendszert a tulajdonos maga tudja-e kezelni.
+     * It used to be an instructor, on the reasoning that it should
+     * reach as little as possible. That was a misreading: the account
+     * belongs to the studio's owner, not to a junior instructor.
+     * Without admin she cannot reach /verwaltung and cannot create or
+     * delete a class — which is precisely the thing you would want to
+     * try out, because it says the most: whether the owner can run the
+     * system herself.
      */
     const oktato: any = (await payload.find({
       collection: 'users', where: { email: { equals: OKTATO_EMAIL } }, limit: 1, depth: 0,
@@ -107,9 +111,10 @@ export async function POST(request: Request) {
         collection: 'users', id: oktato.id,
         data: { password, role: 'admin', language: 'de' },
       })
-      // Visszaolvassuk: a szerep mezőnek saját írási korlátja van, és egy
-      // csendben elmaradt módosítás pont azt venné el, amiért a hívás
-      // van. A script ebből látja, sikerült-e.
+      // Read it back: the role field has its own write restriction,
+      // and a change that silently fails would take away exactly what
+      // this call exists for. This is how the caller sees whether it
+      // worked.
       const ellenor: any = await payload.findByID({
         collection: 'users', id: oktato.id, depth: 0,
       })

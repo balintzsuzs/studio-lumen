@@ -314,10 +314,10 @@
 
   /* ---------- Responsive ---------- */
 
-  /* A `DE | EN` váltó visszatérésével a navigáció szélesebb lett, és
-     belépett állapotban (ahol a `Konto · Név` is kiírodik) 1300px alatt
-     a logó összeért az első menüponttal. Szűkebb köz oldja meg; a
-     jóváhagyott 24px nagy képernyőn érintetlen marad. */
+  /* With the `DE | EN` switch back, the navigation got wider, and when
+     signed in (where `Konto · Name` is also printed) the logo touched
+     the first menu item below 1300px. A tighter gap solves it; the
+     approved 24px stays untouched on large screens. */
   @media (max-width: 1300px) {
     .nav-links { gap: 16px; }
   }
@@ -379,9 +379,10 @@
     .subpage-hero { min-height: 48vh; }
   }
 
-/* ---------- Begrüssungsseite für Nadine ---------- */
-/* A levél hasábja középre, ne a 1180-as .wrap bal szélére tapadjon:
-   széles képernyőn az üres jobb oldal mobilosnak hatott. */
+/* ---------- Demo guide page ---------- */
+/* Centre the column instead of letting it cling to the left edge of
+   the 1180px .wrap: on a wide screen the empty right-hand side looked
+   like a phone layout. */
 .guide { max-width: 760px; margin-left: auto; margin-right: auto; }
 .guide .absender {
   font-size: 0.82rem; letter-spacing: 0.14em; text-transform: uppercase;

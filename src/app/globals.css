@@ -68,7 +68,7 @@ h1 {
   font-size: 0.68rem; letter-spacing: 0.16em; text-transform: uppercase;
 }
 
-/* ---------- oldalvázak ---------- */
+/* ---------- page shells ---------- */
 .shell.wide { max-width: 940px; }
 .shell.narrow { max-width: 420px; }
 
@@ -95,7 +95,7 @@ h1 {
 }
 .ok { border-left-color: #2f6f4f; }
 
-/* ---------- szűrők ---------- */
+/* ---------- filters ---------- */
 .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 44px; }
 .chip {
   font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase;
@@ -104,7 +104,7 @@ h1 {
 .chip:hover { border-color: var(--ink); color: var(--ink); }
 .chip.on { background: var(--ink); border-color: var(--ink); color: var(--cream); }
 
-/* ---------- órarend ---------- */
+/* ---------- schedule ---------- */
 .day { margin-bottom: 44px; }
 .day h2 {
   font-weight: 400; font-size: 0.72rem; letter-spacing: 0.22em;
@@ -130,7 +130,7 @@ h1 {
 }
 .sessions a:hover .go { background: var(--ink); color: var(--cream); border-color: var(--ink); }
 
-/* ---------- teremtérkép ---------- */
+/* ---------- floor plan ---------- */
 .room { margin-top: 48px; }
 .room h2 { font-weight: 400; font-size: 1.2rem; margin-bottom: 8px; }
 .mirror {
@@ -173,7 +173,7 @@ button.btn:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 .linklike:hover { color: var(--ink); }
 
-/* ---------- űrlap ---------- */
+/* ---------- forms ---------- */
 .form { display: grid; gap: 18px; margin: 32px 0 24px; }
 .form label { display: grid; gap: 7px; font-size: 0.72rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); }
 .form input {
@@ -182,7 +182,7 @@ button.btn:disabled { opacity: 0.35; cursor: not-allowed; }
 }
 .form input:focus { outline: none; border-color: var(--ink); }
 
-/* ---------- konto ---------- */
+/* ---------- account ---------- */
 .shell section { margin-bottom: 48px; }
 .shell section h2 {
   font-weight: 400; font-size: 0.72rem; letter-spacing: 0.22em;
@@ -214,7 +214,7 @@ button.btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .who { display: flex; align-items: center; gap: 4px; font-size: 0.88rem; color: var(--ink-soft); }
 .who form { display: inline; }
 
-/* ------------------------------------------------ Warteliste és ajánlat */
+/* ------------------------------------------------ Waitlist and offer */
 
 .offer {
   border: 1px solid var(--ink);
@@ -228,7 +228,7 @@ button.btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .waitlist h2 { font-weight: 400; font-size: 1.2rem; margin-bottom: 10px; }
 .waitlist .hint { max-width: 56ch; margin-bottom: 18px; }
 
-/* ------------------------------------------------ Oktatói nézet */
+/* ------------------------------------------------ Instructor view */
 
 .linkish {
   background: none; border: 0; padding: 0; font: inherit;
@@ -292,10 +292,10 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
 .order-open h2 { font-weight: 400; font-size: 1.1rem; margin-bottom: 10px; }
 .order-open .hint { margin-bottom: 12px; max-width: 60ch; }
 
-/* ---------- nyelvváltó ----------
-   Ugyanaz a kép, mint a marketing oldal navigációjában: `DE | EN`,
-   az aktuális nyelv kiemelve. Ott hivatkozás, itt űrlap, mert a
-   választást a felhasználó profiljába is elmentjük. */
+/* ---------- language switch ----------
+   The same look as in the marketing site's navigation: `DE | EN`, with
+   the current language highlighted. There it is a link, here a form,
+   because the choice is also saved to the user's profile. */
 .topbar {
   display: flex; justify-content: flex-end;
   padding: 14px 24px 0; max-width: 1180px; margin: 0 auto;
@@ -310,33 +310,34 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
 .lang [aria-current="true"] { color: var(--ink); font-weight: 600; }
 .lang [aria-hidden="true"] { color: var(--line); }
 
-/* Egészségügyi megjegyzés a jelenléti listán: külön jelölve, mert ez az,
-   amit az oktatónak óra előtt észre kell vennie. */
+/* The health note in the register: marked out separately, because it
+   is the thing the instructor has to notice before the class. */
 .tag.egeszseg { color: var(--ink); border-left: 2px solid var(--flag, #8a6a3f); padding-left: 8px; }
 
 
-/* A jelenléti lista négy oszlopa telefonon kifutna a képernyőről:
-   a táblázat görögjön a saját keretén belül, ne az egész lap. */
+/* The register's four columns would run off the screen on a phone:
+   let the table scroll inside its own frame, not the whole page. */
 .tabla-keret { overflow-x: auto; }
 .tabla-keret table.list { min-width: 460px; }
 
-/* ------------------------------------------------ naptár
+/* ------------------------------------------------ calendar
 
-   Napközpontú elrendezés: hónap, vízszintes dátumsáv körökkel, alatta
-   az adott nap órái egymás alatt. A heti és a havi nézet ugyanezeket a
-   sorokat használja, csak több napra — nincs külön rács, mert hét
-   oszlop telefonon olvashatatlan, és a sorok amúgy is többet mondanak. */
+   A day-centred layout: the month, a horizontal date strip with
+   circles, and under it the day's classes stacked. The week and month
+   views use the same rows, just across more days — there is no
+   separate grid, because seven columns are unreadable on a phone, and
+   the rows say more anyway. */
 
 .naptar { margin-top: 28px; }
 
-/* --- fejléc --- */
+/* --- header --- */
 .naptar-fej {
   display: flex; justify-content: space-between; align-items: baseline;
   gap: 16px; flex-wrap: wrap; margin-bottom: 18px;
 }
-/* A `.shell section h2` minden szakaszcímet nagybetűsít és aláhúz.
-   A naptár hónapneve nem szakaszcím, hanem felirat — két osztállyal
-   írjuk felül, hogy erősebb legyen annál a szabálynál. */
+/* `.shell section h2` uppercases and underlines every section title.
+   The calendar's month name is not a section title but a caption — it
+   is overridden with two classes, so it outweighs that rule. */
 .naptar .naptar-honapnev {
   font-size: 1.35rem; font-weight: 500; margin: 0;
   letter-spacing: -0.01em; text-transform: none;
@@ -357,7 +358,7 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
   color: var(--ink); border-color: var(--line); background: var(--white);
 }
 
-/* --- dátumsáv --- */
+/* --- date strip --- */
 .datumsav {
   display: flex; align-items: center; gap: 4px;
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
@@ -405,7 +406,7 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
 .ma-link { border-bottom: 1px solid var(--line); }
 .ma-link:hover { border-color: var(--ink); color: var(--ink); }
 
-/* --- napok és órák --- */
+/* --- days and classes --- */
 .naptar-tartalom { margin-top: 28px; }
 .naptar-napblokk + .naptar-napblokk { margin-top: 34px; }
 .naptar-napblokk h3 {
@@ -452,7 +453,7 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
 .ora-jeloles.telt { color: var(--ink); }
 .btn.ora-gomb { padding: 9px 20px; font-size: 0.78rem; white-space: nowrap; }
 
-/* --- keskeny képernyő --- */
+/* --- narrow screens --- */
 @media (max-width: 620px) {
   .naptar-fej { flex-direction: column; align-items: flex-start; gap: 10px; }
   .sav-szam { width: 36px; height: 36px; font-size: 0.92rem; }
@@ -471,8 +472,9 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
   .sav-betu { font-size: 0.66rem; }
 }
 
-/* Résztvevők az óra alatt, a stúdió nézetében. Behúzva a cím alá, hogy
-   látszódjon: ezek az adott órához tartoznak, nem új sorok. */
+/* Participants under the class, in the studio view. Indented beneath
+   the title so it is clear they belong to that class and are not rows
+   of their own. */
 .ora-sor .resztvevok {
   grid-column: 2 / -1; list-style: none; margin: 12px 0 0; padding: 0;
   display: grid; gap: 7px; font-size: 0.85rem;
@@ -493,7 +495,7 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
   .ora-sor .resztvevok { grid-column: 1 / -1; }
 }
 
-/* ---------------------------------------------------- vendégek (stúdió) */
+/* ---------------------------------------------------- customers (studio) */
 .kereso { display: flex; gap: 10px; align-items: center; margin: 0 0 18px; flex-wrap: wrap; }
 .kereso input[type='search'] {
   flex: 1 1 220px; min-width: 0;
@@ -501,8 +503,9 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
   font: inherit; background: transparent; color: var(--ink);
 }
 
-/* Kontakt és egészségügyi megjegyzés egymás mellett: óra előtt ez a
-   két dolog kell, és a telefonszámért nem kell görgetni. */
+/* Contact details and the health note side by side: before a class
+   those are the two things you need, and nobody should have to scroll
+   for a phone number. */
 .kunde-racs { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; align-items: start; }
 
 dl.adatlap { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
@@ -533,7 +536,7 @@ ul.kunde-orak > li.muted { color: var(--ink-soft); }
 }
 dl.adatlap + .hint { margin-top: 14px; }
 
-/* ------------------------------------------------------- óra felvétele */
+/* ------------------------------------------------------- creating a class */
 details.ujora { border: 1px solid var(--line); padding: 14px 16px; margin: 0 0 22px; }
 details.ujora > summary { cursor: pointer; font-weight: 500; }
 details.ujora[open] > summary { margin-bottom: 10px; }

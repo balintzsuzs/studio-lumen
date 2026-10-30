@@ -6,38 +6,41 @@ import { orderAbo } from '@/lib/abo'
 import { markAttendance } from '@/lib/attendance'
 
 /**
- * Bemutató-adatok: egy demó-ügyfél kreditekkel, és néhány foglalás,
- * hogy a teremtérkép ne üresen álljon.
+ * Demo data: one demo customer with credits, and a few bookings so the
+ * floor plan is not empty.
  *
- * Csak ALLOW_SEED=true mellett fut, tehát élesben nem elérhető —
- * helyből hívjuk, a termelési adatbázisra mutatva.
+ * Runs only with ALLOW_SEED=true, so it is unreachable in production —
+ * it is called locally, pointed at whichever database is configured.
  *
  *   curl -X POST "http://localhost:3000/setup/demo-data" \
  *     -H 'content-type: application/json' -d '{"password":"..."}'
  *
- * Újrafuttatható: ami már létezik, azt nem hozza létre újra.
+ * Re-runnable: anything that already exists is not created again.
  */
 
 const DEMO_DOMAIN = '@demo.studio-lumen.ch'
 
 /*
- * A fő demó-ügyfél. Korábban „Nadine Demo" volt, a
- * `nadine@demo.studio-lumen.ch` címen — csakhogy ezen a címen Nadine
- * Hofer OKTATÓ fiókja ül. A régi hívás tehát nem demó-ügyfelet
- * hozott létre, hanem az oktató fiókjára akasztott ügyfél-abót, és így
- * került Nadine az ügyfelek közé. Nadine az oktatók közé tartozik.
+ * The main demo customer. It used to be "Nadine Demo", at
+ * `nadine@demo.studio-lumen.ch` — except that address belongs to
+ * Nadine Hofer's INSTRUCTOR account. So the old call did not create a
+ * demo customer at all: it hung a customer pass on the instructor's
+ * account, which is how Nadine ended up among the customers. She
+ * belongs with the instructors.
  *
- * Innentől a demó-ügyfélnek saját, ütközésmentes címe van, és az
- * `ensure()` nem nyúl olyan fiókhoz, ami nem ügyfél.
+ * From here on the demo customer has its own, collision-free address,
+ * and `ensure()` never touches an account that is not a customer.
  */
 const DEMO_UGYFEL = { email: 'sandra', firstName: 'Sandra', lastName: 'Demo' }
 
 /*
- * A demó-látogatók, akik a térképen foglaltként látszanak.
+ * The demo visitors, who appear as booked on the floor plan.
  *
- * Hatan vannak, mert a bemutatóhoz egy órát teljesen meg kell tölteni —
- * Zugban hat reformer van. Enélkül a várólista nem mutatható meg,
- * márpedig az a rendszer egyik legfontosabb képessége.
+ * There are six of them, because the demo needs a class to fill up
+ * completely with people left over. Zug has four reformers, so six
+ * guests fill it and two land on the waitlist. Without that the
+ * waitlist cannot be shown at all, and it is one of the system's most
+ * valuable features.
  */
 const EXTRAS = [
   { firstName: 'Andrea', lastName: 'Demo' },
@@ -71,7 +74,7 @@ export async function POST(request: Request) {
     })).docs[0]
     if (!aboType) return Response.json({ error: 'Abo-Typ fehlt, zuerst /setup/seed' }, { status: 400 })
 
-    /** Ügyfél + aktív abo, ha még nincs. */
+    /** A customer plus an active pass, if they do not exist yet. */
     const ensure = async (
       email: string, firstName: string, lastName: string, credits: number,
     ) => {
@@ -79,11 +82,12 @@ export async function POST(request: Request) {
         collection: 'users', where: { email: { equals: email } }, limit: 1, depth: 0,
       })
       let user: any = (found.docs as any[])[0]
-      // Védőkorlát: ha ezen a címen nem ügyfél ül, nem nyúlunk hozzá.
-      // Így egy demó-adat futtatás nem tud oktatói fiókra abót akasztani.
+      // Guard rail: if the address does not belong to a customer, we
+      // leave it alone. That way a demo-data run cannot hang a pass on
+      // an instructor's account.
       if (user && user.role !== 'customer') {
         throw new Error(
-          `${email} nem ügyfél (${user.role}) — a demó-adat nem ír felül oktatói fiókot`,
+          `${email} is not a customer (${user.role}) — demo data never overwrites an instructor account`,
         )
       }
       if (!user) {
@@ -92,11 +96,11 @@ export async function POST(request: Request) {
           data: { email, password, firstName, lastName, role: 'customer' },
         })
       } else {
-        // A jelszót a meglévő demó-fióknál is beállítjuk. Enélkül a
-        // második futás után senki sem tud belépni demó-ügyfélként: a
-        // fiók megvan, de a jelszava egy korábbi futásból maradt, amit
-        // már nem tud senki. A bemutatón pedig épp azt kell megmutatni,
-        // mit lát az ügyfél.
+        // The password is set on an existing demo account too.
+        // Otherwise, after the second run nobody can sign in as the
+        // demo customer: the account exists, but its password is left
+        // over from an earlier run and nobody knows it any more. And
+        // showing what the customer sees is the whole point.
         await payload.update({ collection: 'users', id: user.id, data: { password } })
       }
       const abo = await payload.find({
@@ -117,13 +121,13 @@ export async function POST(request: Request) {
         })
       } else {
         /*
-         * A kreditet minden futáson visszatöltjük, az érvényességgel együtt.
+         * Credits are topped up on every run, along with the expiry.
          *
-         * A foglalás kreditet fogyaszt, tehát a harmadik-negyedik
-         * demó-előkészítés után a vendégeknek nulla marad, és a további
-         * foglalások csendben elmaradnak: üres órák, üres történet, és
-         * semmi jele, hogy miért. A demó-előkészítés nem „ha nincs, hozd
-         * létre", hanem ismert állapotba állítás.
+         * Booking consumes credits, so after the third or fourth demo
+         * preparation the guests are down to zero and further bookings
+         * fail silently: empty classes, empty history, and no sign of
+         * why. Preparing the demo is not "create it if missing" but
+         * "put it into a known state".
          */
         await payload.update({
           collection: 'abos', id: (abo.docs as any[])[0].id,
@@ -143,7 +147,7 @@ export async function POST(request: Request) {
       extras.push(await ensure(`gast${i + 1}${DEMO_DOMAIN}`, e.firstName, e.lastName, 10))
     }
 
-    // Néhány közelgő órára foglalunk, hogy legyen mit látni a térképen.
+    // Book a few upcoming classes so there is something on the floor plan.
     const upcoming = await payload.find({
       collection: 'sessions',
       where: {
@@ -152,7 +156,7 @@ export async function POST(request: Request) {
           { status: { equals: 'scheduled' } },
         ],
       },
-      // Három nap órái kellenek, nem hét darab: naponta négy óra van.
+      // We want three days' worth of classes, not seven of them: there are four a day.
       sort: 'startsAt', limit: 16, depth: 0,
     })
     const orak = upcoming.docs as any[]
@@ -160,19 +164,19 @@ export async function POST(request: Request) {
     let booked = 0
 
     /*
-     * Telt órák várólistával — a következő HÁROM napra, nem csak a
-     * legközelebbi órára.
+     * Full classes with a waitlist — across the next THREE days, not
+     * just the very next class.
      *
-     * A betelt óra és a sorban állás a rendszer egyik legtöbbet érő
-     * része, ezt a bemutatón látni kell. Korábban csak a soron következő
-     * óra telt meg: ha az előkészítés ma délután futott, az az óra
-     * holnapra már a múltban volt, és a bemutató üres órarendet mutatott.
-     * Így három napon át van mit megnézni, akkor is, ha senki nem futtat
-     * újra semmit.
+     * A class that fills up and a queue forming is one of the system's
+     * most valuable parts, and the demo has to show it. It used to fill
+     * only the next class up: if the preparation ran this afternoon,
+     * that class was already in the past by tomorrow, and the demo
+     * showed an empty schedule. This way there is something to look at
+     * for three days, even if nobody re-runs anything.
      *
-     * Zürichben öt gép van, és hat demó-vendég — pont annyi, hogy egy
-     * ember a várólistára kerüljön. Zugban hat gép van, ott nem
-     * maradna senki, ezért ott nem keresünk telt órát.
+     * Zug has four machines against six demo guests — enough for two
+     * people to land on the waitlist. Zürich has six, where nobody
+     * would be left over, so we do not look for a full class there.
      */
     const teltOrak: number[] = []
     let varolistan = 0
@@ -184,8 +188,8 @@ export async function POST(request: Request) {
       if (hasznaltNapok.has(nap)) continue
 
       const helyek = await getAvailability(payload, s.id)
-      // Csak ott, ahol kevesebb a hely, mint a vendég — különben nem
-      // telik be, és várólista sem lesz.
+      // Only where there are fewer spots than guests — otherwise it
+      // never fills and there is no waitlist.
       if (helyek.length === 0 || helyek.length >= extras.length) continue
 
       let ide = 0
@@ -198,7 +202,7 @@ export async function POST(request: Request) {
       hasznaltNapok.add(nap)
       teltOrak.push(s.id)
 
-      // Aki már nem fért be, az a várólistára kerül.
+      // Whoever did not fit goes onto the waitlist.
       for (const u of extras.slice(helyek.length)) {
         const r = await joinWaitlist(payload, u.id, s.id)
         if (r.ok) varolistan++
@@ -206,7 +210,7 @@ export async function POST(request: Request) {
     }
     const teltOra: number | null = teltOrak[0] ?? null
 
-    // A többi óra részben telik meg, hogy a térkép ne legyen egyforma.
+    // The other classes fill partially, so the floor plan is not uniform.
     let reszben = 0
     for (const s of orak) {
       if (teltOrak.includes(s.id)) continue
@@ -219,16 +223,18 @@ export async function POST(request: Request) {
     }
 
     /*
-     * Történet a múltban: a lement órákon rögzítjük a jelenlétet.
+     * A history in the past: attendance is recorded on finished
+     * classes.
      *
-     * Enélkül a vendég profilján minden elmúlt óra „gebucht" marad, a
-     * statisztika nulla, és a bemutatón úgy látszik, mintha nem működne —
-     * pedig csak senki nem vette fel a jelenlétet.
+     * Without it, every past class on a customer's profile stays
+     * "gebucht", the statistics read zero, and the demo looks broken —
+     * when in fact nobody ever took attendance.
      *
-     * Nem új foglalásokat gyártunk: a lement órákon már vannak foglalások
-     * a korábbi futásokból, csak nyitva maradtak. Egy új foglalás ezekkel
-     * ütközne (ugyanaz az ember, ugyanaz az óra), és csendben elmaradna.
-     * A stúdió is ugyanezt teszi óra után: felveszi a jelenlétet.
+     * We do not manufacture new bookings: the finished classes already
+     * have bookings from earlier runs, they were simply left open. A
+     * new booking would clash with those (same person, same class) and
+     * fail silently. This is also what the studio does after a class:
+     * it records attendance.
      */
     let multbeli = 0
     let nemJott = 0
@@ -253,8 +259,9 @@ export async function POST(request: Request) {
       })).docs as any[]
 
       for (const [j, b] of nyitott.entries()) {
-        // A legutóbbi órán egy ember nem jelent meg. A no-show nem
-        // elméleti eset: a megbízhatósági statisztika rajta látszik.
+        // In the most recent class one person did not show up. A
+        // no-show is not a theoretical case: the reliability figures
+        // are where it becomes visible.
         const nemjelent = i === 0 && j === nyitott.length - 1 && nyitott.length > 1
         const r = await markAttendance(payload, b.id, nemjelent ? 'no_show' : 'attended')
         if (!r.ok) continue
@@ -263,7 +270,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Egy nyitott abo-megrendelés, hogy a Verwaltung lapon legyen teendő.
+    // One open pass order, so the Verwaltung page has something to do.
     let nyitottRendeles: string | null = null
     const utolso = extras[extras.length - 1]
     if (utolso) {
@@ -276,7 +283,7 @@ export async function POST(request: Request) {
       demoUser: demo.email,
       extras: extras.length,
       bookings: booked,
-      // A bemutatóhoz: ez az óra telt meg, ezen látszik a várólista.
+      // For the demo: this is the class that filled, and where the waitlist shows.
       volleSession: teltOra,
       volleSessions: teltOrak,
       warteliste: varolistan,

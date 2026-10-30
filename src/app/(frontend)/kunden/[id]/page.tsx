@@ -30,8 +30,9 @@ const ROLE_KULCS: Record<string, SzotarKulcs> = {
 }
 
 /**
- * Egy óra sora a történetben. Az óra oldalára mutat, nem egy
- * zsákutcába: onnan a jelenlét is javítható, ha utólag kiderül.
+ * One class's row in the history. It links to the class's own page
+ * rather than into a dead end: from there attendance can also be
+ * corrected, if something comes to light afterwards.
  */
 const oraSor = (o: KundeOra, t: Fordito, lang: 'de' | 'en', allapottal: boolean) => (
   <li key={o.bookingId} className={o.allapot === 'cancelled' ? 'muted' : undefined}>
@@ -80,8 +81,8 @@ export default async function KundeOldal({ params }: { params: Promise<{ id: str
       <p className="back"><Link href="/kunden">{t('kunde.lista_vissza')}</Link></p>
 
       <h1>{nev}</h1>
-      {/* Üres bekezdés helyett semmi: egy jelzés nélküli vendégnél a
-          címsor alatti rés indokolatlan lyuknak látszana. */}
+      {/* Nothing rather than an empty paragraph: for a customer with no
+          markers, the gap under the heading would look like a hole. */}
       {(ROLE_KULCS[k.role] || k.isMatCustomer || p.youngMember) && (
         <p className="lead">
           {ROLE_KULCS[k.role] && <span className="tag">{t(ROLE_KULCS[k.role])}</span>}
@@ -111,8 +112,8 @@ export default async function KundeOldal({ params }: { params: Promise<{ id: str
             <dt>{t('kunde.sprache')}</dt>
             <dd>{k.language === 'en' ? 'English' : 'Deutsch'}</dd>
           </dl>
-          {/* Szerkeszteni az admin felületen lehet: egy mezőt két helyen
-              írni azt jelentené, hogy két szabályt kell egyben tartani. */}
+          {/* Editing happens in the Payload admin: writing one field in
+              two places would mean keeping two rules in step. */}
           <p className="hint">
             <Link href={`/admin/collections/users/${k.id}`}>{t('kunde.szerkeszt')}</Link>
           </p>
@@ -169,9 +170,9 @@ export default async function KundeOldal({ params }: { params: Promise<{ id: str
           <p className="empty">{t('kunde.nincs_korabbi')}</p>
         ) : (
           <>
-            {/* Egy elmúlt óra „gebucht” állapota nem azt jelenti, hogy nem
-                volt ott, hanem hogy senki nem vette fel a jelenlétet. Ha ezt
-                nem írjuk ki, a nulla statisztika hibának látszik. */}
+            {/* A past class still marked "gebucht" does not mean the
+                person was absent, but that nobody recorded attendance.
+                Unless we say so, the zero statistics look like a bug. */}
             {nyitott > 0 && (
               <p className="hint">{t('kunde.nyitott_jelenlet', { db: nyitott })}</p>
             )}

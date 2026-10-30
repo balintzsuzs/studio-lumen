@@ -1,17 +1,17 @@
 import { zoneToUtc } from './series'
 
 /**
- * Naptár-számítások, svájci helyi idő szerint.
+ * Calendar arithmetic, in Swiss local time.
  *
- * A rendszer mindenhol `Europe/Zurich` zónában gondolkodik (lásd
- * `format.ts` és `series.ts`), és a naptár sem lehet kivétel: egy
- * 00:00-kor kezdődő nap UTC-ben az előző nap 22:00 vagy 23:00, attól
- * függően, hogy nyári időszámítás van-e. Ha ezt elrontjuk, a hétfő
- * reggeli óra a vasárnapi oszlopba csúszik.
+ * The whole system thinks in `Europe/Zurich` (see `format.ts` and
+ * `series.ts`), and the calendar is no exception: a day starting at
+ * 00:00 is 22:00 or 23:00 the previous day in UTC, depending on
+ * daylight saving. Get this wrong and the Monday morning class slides
+ * into the Sunday column.
  *
- * A napokat `'ÉÉÉÉ-HH-NN'` alakú szövegként kezeljük, mert az
- * összehasonlítható, rendezhető, és nincs benne időzóna-csapda. Valódi
- * időpillanattá csak a lekérdezés határainál alakítjuk.
+ * Days are handled as `'YYYY-MM-DD'` strings, because those compare and
+ * sort cleanly and carry no timezone trap. They are turned into real
+ * instants only at the boundaries of a query.
  */
 
 export type NaptarMod = 'nap' | 'het' | 'honap'
@@ -23,7 +23,7 @@ export const naptarMod = (ertek: unknown): NaptarMod =>
 
 const ZONA = 'Europe/Zurich'
 
-/** Egy pillanat svájci naptári napja, `'ÉÉÉÉ-HH-NN'` alakban. */
+/** The Swiss calendar day of an instant, as `'YYYY-MM-DD'`. */
 export const napKulcs = (mikor: Date | string): string => {
   const d = typeof mikor === 'string' ? new Date(mikor) : mikor
   return new Intl.DateTimeFormat('en-CA', {
@@ -31,27 +31,27 @@ export const napKulcs = (mikor: Date | string): string => {
   }).format(d)
 }
 
-/** A mai nap svájci idő szerint. */
+/** Today, in Swiss time. */
 export const ma = (most: Date = new Date()): string => napKulcs(most)
 
-/** `'ÉÉÉÉ-HH-NN'` → számhármas. */
+/** `'YYYY-MM-DD'` → a triple of numbers. */
 const reszek = (nap: string): [number, number, number] => {
   const [y, m, d] = nap.split('-').map(Number)
   return [y, m, d]
 }
 
-/** Érvényes-e a napkulcs; hibás bemenetre a mai napra esünk vissza. */
+/** Whether the day key is valid; bad input falls back to today. */
 export const napKulcsVagyMa = (ertek: unknown, most: Date = new Date()): string => {
   if (typeof ertek !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(ertek)) return ma(most)
   const [y, m, d] = reszek(ertek)
   if (m < 1 || m > 12 || d < 1 || d > 31) return ma(most)
-  // Valódi dátum-e (február 30. nem az)
+  // Is it a real date (30 February is not)
   const ellenor = new Date(Date.UTC(y, m - 1, d))
   if (ellenor.getUTCMonth() !== m - 1 || ellenor.getUTCDate() !== d) return ma(most)
   return ertek
 }
 
-/** Nap eltolása naptári napokkal, zónától függetlenül. */
+/** Shifts a day by calendar days, independently of timezone. */
 export const napPlusz = (nap: string, mennyi: number): string => {
   const [y, m, d] = reszek(nap)
   const u = new Date(Date.UTC(y, m - 1, d))
@@ -59,33 +59,33 @@ export const napPlusz = (nap: string, mennyi: number): string => {
   return u.toISOString().slice(0, 10)
 }
 
-/** A hét napja: 0 = hétfő … 6 = vasárnap. Svájcban a hét hétfőn kezdődik. */
+/** Day of week: 0 = Monday … 6 = Sunday. In Switzerland the week starts on Monday. */
 export const hetNapja = (nap: string): number => {
   const [y, m, d] = reszek(nap)
   return (new Date(Date.UTC(y, m - 1, d)).getUTCDay() + 6) % 7
 }
 
-/** A nap hetének hétfője. */
+/** The Monday of the week this day falls in. */
 export const hetKezdete = (nap: string): string => napPlusz(nap, -hetNapja(nap))
 
-/** A nap hónapjának első napja. */
+/** The first day of the month this day falls in. */
 export const honapKezdete = (nap: string): string => {
   const [y, m] = reszek(nap)
   return `${y}-${String(m).padStart(2, '0')}-01`
 }
 
-/** Hány napos az adott hónap. */
+/** How many days this month has. */
 export const honapHossza = (nap: string): number => {
   const [y, m] = reszek(nap)
   return new Date(Date.UTC(y, m, 0)).getUTCDate()
 }
 
 /**
- * A nézetben megjelenő napok listája.
+ * The list of days the current view shows.
  *
- * A havi nézet teljes heteket ad (hétfőtől vasárnapig), hogy a rács ne
- * csonkuljon — a hónapon kívüli napok is benne vannak, azokat a
- * megjelenítés halványítja.
+ * The month view returns whole weeks (Monday to Sunday) so the grid is
+ * never ragged — days outside the month are included, and the rendering
+ * dims them.
  */
 export const naptarNapjai = (mod: NaptarMod, horgony: string): string[] => {
   if (mod === 'nap') return [horgony]
@@ -103,8 +103,8 @@ export const naptarNapjai = (mod: NaptarMod, horgony: string): string[] => {
 }
 
 /**
- * A lekérdezés időhatárai: a nézet első napjának 00:00-jától a mögötte
- * következő nap 00:00-jáig, svájci helyi időben.
+ * The time bounds of the query: from 00:00 on the view's first day to
+ * 00:00 on the day after its last, in Swiss local time.
  */
 export const naptarHatarok = (
   mod: NaptarMod,
@@ -121,7 +121,7 @@ export const naptarHatarok = (
   }
 }
 
-/** Lapozás előre vagy hátra a nézet egységével. */
+/** Pages forward or back by the view's own unit. */
 export const naptarLepes = (mod: NaptarMod, horgony: string, irany: 1 | -1): string => {
   if (mod === 'nap') return napPlusz(horgony, irany)
   if (mod === 'het') return napPlusz(horgony, 7 * irany)
@@ -130,19 +130,21 @@ export const naptarLepes = (mod: NaptarMod, horgony: string, irany: 1 | -1): str
   return u.toISOString().slice(0, 10)
 }
 
-/** A hónapon belül van-e a nap — a havi rács halványításához. */
+/** Whether the day falls inside the month — for dimming the month grid. */
 export const azonosHonap = (nap: string, horgony: string): boolean =>
   nap.slice(0, 7) === horgony.slice(0, 7)
 
 /**
- * A lekérdezés határai, a dátumsávot is beleértve.
+ * The query bounds, including the date strip.
  *
- * A sáv mindig a kiválasztott nap hetét mutatja, és a napok alatt
- * jelzi, van-e aznap óra. Napi nézetben viszont a megjelenített
- * időszak egyetlen nap — ha csak azt kérdeznénk le, a sáv nem tudná,
- * mely napokon van óra, és minden jelzés eltűnne.
+ * The strip always shows the week of the selected day, and marks under
+ * each day whether there are classes on it. In day view, though, the
+ * displayed period is a single day — query only that and the strip
+ * would not know which days have classes, and every marker would
+ * disappear.
  *
- * Ezért a lekérdezés a nézet időszakának ÉS a sáv hetének az uniója.
+ * So the query covers the union of the view's period AND the strip's
+ * week.
  */
 export const naptarLekerdezes = (
   mod: NaptarMod,

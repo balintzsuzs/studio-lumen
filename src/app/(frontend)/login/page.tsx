@@ -18,9 +18,9 @@ export default async function Login({
       <h1>{t('login.cim')}</h1>
       {szotarKulcs(fehler) && <p className="alert">{t(fehler)}</p>}
       <form action={login} className="form">
-        {/* Üresen hagyjuk, ha nincs hova visszatérni: akkor a szerep
-            dönti el, hova érkezik — az oktató az óráihoz, nem a
-            foglalási laphoz. */}
+        {/* Left empty when there is nowhere to return to: then the role
+            decides where they land — an instructor at their classes,
+            not at the booking page. */}
         <input type="hidden" name="next" value={next ?? ''} />
         <label>
           {t('login.email')}

@@ -3,14 +3,15 @@ import type { Lang } from '@/lib/lang'
 import { forditó } from '@/lib/i18n'
 
 /**
- * A `DE | EN` váltó a foglalórendszer lapjain.
+ * The `DE | EN` switch on the booking system's pages.
  *
- * Ugyanaz a jelölés, mint a marketing oldal navigációjában
- * (`<span class="lang">`), hogy egyformán nézzen ki — csak itt űrlap,
- * mert a választást a `users.language` mezőbe is elmentjük.
+ * The same markup as in the marketing site's navigation
+ * (`<span class="lang">`) so it looks identical — only here it is a
+ * form, because the choice is also saved to `users.language`.
  *
- * Az aktuális nyelv nem gomb, hanem `aria-current`-tel jelölt szöveg:
- * nincs mire kattintani, ha már azon a nyelven van az ember.
+ * The current language is not a button but text marked with
+ * `aria-current`: there is nothing to click if you are already reading
+ * in that language.
  */
 export default function LangSwitch({ lang, next }: { lang: Lang; next: string }) {
   const t = forditó(lang)

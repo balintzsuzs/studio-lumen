@@ -28,11 +28,11 @@ const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
 /**
- * Az adatbázis a kapcsolati sztringből derül ki.
+ * The database is determined from the connection string.
  *
- * Helyben SQLite fájl, Vercelen Postgres (Neon vagy Supabase). Így a
- * deployhoz nem kell kódot módosítani, csak a `DATABASE_URI`-t
- * beállítani — és a prototípus továbbra is fut külső fiók nélkül.
+ * An SQLite file locally, Postgres on Vercel (Neon or Supabase). That
+ * way deploying needs no code change, only `DATABASE_URI` — and the
+ * prototype still runs without any external account.
  */
 const databaseUri = process.env.DATABASE_URI || 'file:./studio-lumen.db'
 const isPostgres = /^postgres(ql)?:\/\//.test(databaseUri)
@@ -72,7 +72,7 @@ export default buildConfig({
   },
   db,
   sharp,
-  // Az admin felület nyelve: német az alapértelmezett, angol választható.
+  // The admin UI language: German by default, English selectable.
   i18n: {
     fallbackLanguage: 'de',
     supportedLanguages: { de, en },

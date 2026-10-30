@@ -1,30 +1,31 @@
 import 'server-only'
 
 /**
- * Védelem a teszt-adat ellen az éles adatbázisban.
+ * Protection against test data reaching the production database.
  *
- * 2026 októberében valaki lefuttatta a teszt-készletet az éles Neon
- * adatbázison. A takarítás nem vitte el maga után mindet, és 95 teszt-fiók
- * meg 80 teszt-óra maradt ott — a bemutatón „Kundin Nr140" nevű ügyfelek
- * és „Serien Nr169" nevű oktató látszott volna.
+ * In October 2026 the test suite was run against the live Neon
+ * database. The clean-up did not take everything with it, and 95 test
+ * accounts and 80 test classes were left behind — the demo would have
+ * shown customers called "Kundin Nr140" and an instructor called
+ * "Serien Nr169".
  *
- * Az `ALLOW_SEED` önmagában nem elég, mert a helyi szervert bármikor rá
- * lehet állítani az éles adatbázisra. Ezért az adatot író teszt-útvonalak
- * megnézik azt is, MILYEN adatbázishoz beszélnek.
+ * `ALLOW_SEED` alone is not enough, because the local server can be
+ * pointed at the production database at any time. So the test routes
+ * that write data also check WHICH database they are talking to.
  */
 
-/** Postgres = éles. A prototípus helyben SQLite fájlt használ. */
+/** Postgres means production. Locally the prototype uses an SQLite file. */
 export const elesAdatbazis = (): boolean =>
   /^postgres(ql)?:\/\//.test(process.env.DATABASE_URI ?? '')
 
 export type Tiltas = { tiltva: true; valasz: Response } | { tiltva: false }
 
 /**
- * Teszt-adatot író útvonalakra. Visszaadja a kész elutasító választ,
- * ha nem szabad futnia.
+ * For routes that write test data. Returns the ready-made rejection
+ * response when they must not run.
  *
- * A `FORCE_TEST_ON_PRODUCTION=true` szándékosan körülményes: ha valaki
- * tényleg az éles adatbázison akar tesztelni, azt írja is le magának.
+ * `FORCE_TEST_ON_PRODUCTION=true` is deliberately awkward: if someone
+ * really does want to test against production, let them spell it out.
  */
 export const tesztTiltas = (): Tiltas => {
   if (process.env.ALLOW_SEED !== 'true') {

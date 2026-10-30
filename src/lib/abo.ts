@@ -4,17 +4,17 @@ import type { Payload } from 'payload'
 import { aboOrdered, aboActivated } from './notify'
 
 /**
- * Abo-megrendelés fizetési szolgáltató nélkül.
+ * Ordering a pass, without a payment provider.
  *
- * Az AGB szerint a fizetés ma **helyszíni készpénz vagy banki átutalás**
- * (QR-számla, 10 nap) — a kártya és a TWINT új csatorna lenne, és az AGB-t
- * is módosítani kell, mielőtt élesedhet. Ezért a megrendelés itt nem
- * fizetés: az ügyfél rendel, az abo `pending` állapotba kerül, és Nadine
- * a fizetés beérkezése után aktiválja. A `findUsableAbo` csak `active`
- * abo-t vesz figyelembe, tehát `pending` abo-val nem lehet foglalni.
+ * The modelled payment is **cash on site or bank transfer** (QR invoice,
+ * 10 days). So ordering here is not paying: the customer orders, the
+ * pass goes to `pending`, and the studio activates it once the money
+ * arrives. `findUsableAbo` only considers `active` passes, so a
+ * `pending` pass cannot be used to book.
  *
- * Amikor a Stripe bekerül, csak egy harmadik út nyílik az aktiváláshoz
- * (`paymentMethod: 'online'`, azonnali `confirmPayment`), a modell marad.
+ * When Stripe is added, it only opens a third route to activation
+ * (`paymentMethod: 'online'`, immediate `confirmPayment`); the model
+ * stays as it is.
  */
 
 const idOf = (v: unknown): number =>
@@ -22,20 +22,20 @@ const idOf = (v: unknown): number =>
 
 export type PaymentMethod = 'on_site' | 'transfer' | 'voucher' | 'online'
 
-/** Young Member: 16-24 év. A születési évből számolva. */
+/** Young Member: ages 16 to 24, derived from the birth year. */
 export const isYoungMember = (birthYear?: number | null, now = new Date()): boolean => {
   if (!birthYear) return false
   const age = now.getFullYear() - birthYear
   return age >= 16 && age <= 24
 }
 
-/** Jogosult-e a kedvezményes tarifára. */
+/** Whether this person qualifies for the reduced rate. */
 export const qualifiesForReduced = (user: any, now = new Date()): boolean =>
   Boolean(user?.isMatCustomer) || isYoungMember(user?.birthYear, now)
 
 /**
- * Amit az ügyfél megrendelhet. A kedvezményes tarifa csak annak látszik,
- * aki jogosult rá — így nem kell utólag visszautasítani a rendelést.
+ * What this customer may order. The reduced rate is only shown to
+ * someone who qualifies, so no order has to be turned down afterwards.
  */
 export const listPurchasable = async (payload: Payload, user: any | null) => {
   const types = await payload.find({
@@ -47,11 +47,12 @@ export const listPurchasable = async (payload: Payload, user: any | null) => {
   return (types.docs as any[]).filter((t) => t.tier === 'standard' || reduced)
 }
 
-/** Az érvényesség vége a megadott pillanattól számítva. */
+/** The end of validity, counted from the given moment. */
 export const expiryFrom = (from: Date, validMonths: number): Date => {
   const d = new Date(from)
-  // Hét alatti érvényességet (Schnupper, Einzelstunde: 0.25 hónap) napokban
-  // számolunk, hogy a hónapléptetés ne kerekítsen fel egy teljes hónapra.
+  // Validity under a month (Schnupper, Einzelstunde: 0.25 months) is
+  // counted in days, so that stepping by months does not round it up to
+  // a full month.
   if (validMonths < 1) {
     d.setDate(d.getDate() + Math.round(validMonths * 30))
     return d
@@ -65,8 +66,8 @@ export type OrderResult =
   | { ok: false; reason: HibaKulcs }
 
 /**
- * Megrendelés. Nem von le semmit és nem engedélyez foglalást — csak
- * rögzíti a szándékot, és Nadine teendőjévé teszi.
+ * Placing an order. Deducts nothing and enables no booking — it only
+ * records the intent and puts it on the studio's to-do list.
  */
 export const orderAbo = async (
   payload: Payload,
@@ -92,7 +93,7 @@ export const orderAbo = async (
   if (type.voucherOnly && method !== 'voucher')
     return { ok: false, reason: 'hiba.abo_csak_utalvany' }
 
-  // Egyszerre egy nyitott megrendelés, hogy ne gyűljenek a duplikátumok.
+  // One open order at a time, so duplicates do not pile up.
   const open = await payload.find({
     collection: 'abos',
     where: { and: [{ customer: { equals: userId } }, { status: { equals: 'pending' } }] },
@@ -112,8 +113,8 @@ export const orderAbo = async (
       aboType: aboTypeId,
       creditsRemaining: type.credits,
       purchasedAt: now.toISOString(),
-      // Előzetes lejárat; az aktiválás újraszámolja a fizetés napjától,
-      // hogy a várakozás ne fogyassza az érvényességet.
+      // Provisional expiry; activation recalculates it from the day of
+      // payment, so that waiting does not eat into the validity.
       expiresAt: expiryFrom(now, type.validMonths).toISOString(),
       orderedAt: now.toISOString(),
       status: 'pending',
@@ -128,8 +129,8 @@ export const orderAbo = async (
 }
 
 /**
- * A fizetés beérkezett: az abo aktív lesz, és az érvényesség ettől a
- * naptól indul, nem a megrendeléstől.
+ * Payment has arrived: the pass becomes active, and its validity runs
+ * from this day, not from the order.
  */
 export const confirmPayment = async (
   payload: Payload,
@@ -165,7 +166,7 @@ export const confirmPayment = async (
   return { ok: true, expiresAt }
 }
 
-/** Megrendelés visszavonása: az ügyfél meggondolta magát, vagy nem fizetett. */
+/** Withdrawing an order: the customer changed their mind, or never paid. */
 export const cancelOrder = async (
   payload: Payload,
   aboId: number,
@@ -186,7 +187,7 @@ export const cancelOrder = async (
   return { ok: true }
 }
 
-/** Az ügyfél nyitott megrendelése, ha van. */
+/** The customer's open order, if there is one. */
 export const getOpenOrder = async (payload: Payload, userId: number) => {
   const r = await payload.find({
     collection: 'abos',

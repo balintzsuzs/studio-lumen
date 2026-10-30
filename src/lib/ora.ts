@@ -4,25 +4,25 @@ import type { HibaKulcs } from './i18n'
 import { zoneToUtc } from './series'
 
 /**
- * Egyedi óra felvétele és törlése a stúdió oldaláról.
+ * Creating and deleting a single class from the studio side.
  *
- * A rendszeres órák a sorozatokból (`session-series`) jönnek; ez az
- * egyszeri alkalmakra való: pótóra, workshop, egy elmaradt óra új
- * időpontja. A tulajdonosnak ezt a Payload admin felülete nélkül is tudnia
- * kell, mert ott nyolc mezőt lát, és közülük háromnak a jelentése
- * nélkülünk nem derül ki.
+ * Recurring classes come from series (`session-series`); this is for
+ * one-offs: a make-up class, a workshop, a new slot for a class that
+ * fell through. The owner needs to be able to do this without the
+ * Payload admin, because there she is shown eight fields, and three of
+ * them do not explain themselves.
  */
 
 export type UjOra = {
-  /** 'ÉÉÉÉ-HH-NN', svájci naptári nap. */
+  /** 'YYYY-MM-DD', Swiss calendar day. */
   nap: string
-  /** 'ÓÓ:PP', svájci helyi idő. */
+  /** 'HH:MM', Swiss local time. */
   ido: string
   classTypeId: number
   studioId: number
   instructorId: number
   perc: number
-  /** Üresen: az oktató nyelvei érvényesek. */
+  /** Left empty: the instructor's own languages apply. */
   nyelvek?: ('de' | 'en')[]
   megjegyzes?: string
 }
@@ -40,16 +40,17 @@ export const createSession = async (
 
   const [y, m, d] = ora.nap.split('-').map(Number)
   const [hh, mm] = ora.ido.split(':').map(Number)
-  // Svájci helyi időben adjuk meg, UTC-ben tároljuk — ugyanaz a
-  // szabály, mint a sorozatoknál, különben a nyári időszámítás
-  // határán egy órát csúszna.
+  // Entered in Swiss local time, stored in UTC — the same rule as for
+  // series, otherwise it would slip by an hour across the daylight
+  // saving boundary.
   const kezdet = zoneToUtc(y, m, d, hh, mm)
 
-  // A múltba felvett óra senkinek sem jó: foglalni sem lehet rá, és a
-  // lezárás rögtön megjelentre állítana mindenkit — aki ott sem volt.
+  // A class created in the past helps nobody: it cannot be booked, and
+  // closing would immediately mark everyone present — including people
+  // who were never there.
   if (kezdet <= now) return { ok: false, reason: 'hiba.ora_a_multban' }
 
-  // Az oktatónak oktatónak kell lennie, a stúdiónak és a típusnak léteznie.
+  // The instructor must actually be one, and the studio and type must exist.
   const [oktato, studio, tipus] = await Promise.all([
     payload.findByID({ collection: 'users', id: ora.instructorId, depth: 0 }).catch(() => null),
     payload.findByID({ collection: 'studios', id: ora.studioId, depth: 0 }).catch(() => null),
@@ -60,10 +61,10 @@ export const createSession = async (
     return { ok: false, reason: 'hiba.ora_nem_oktato' }
 
   /*
-   * Ütközés: ugyanaz az oktató, ugyanabban a percben. Nem a terem a
-   * szűk keresztmetszet (két stúdió van), hanem az ember. Ha ezt nem
-   * néznénk, egy elgépelt dátum két órát tenne ugyanarra az időpontra,
-   * és csak a vendégek vennék észre.
+   * Clash: the same instructor, in the same minute. The bottleneck is
+   * not the room (there are two studios), it is the person. Without
+   * this check a mistyped date would put two classes at the same time,
+   * and only the customers would notice.
    */
   const utkozes = await payload.find({
     collection: 'sessions',
@@ -95,15 +96,15 @@ export const createSession = async (
 }
 
 /**
- * Óra törlése.
+ * Deleting a class.
  *
- * Csak akkor, ha senki nincs rajta. Ahol van jelentkező, ott a törlés
- * rossz eszköz: nyomtalanul tűnne el egy óra, amire emberek beírták
- * magukat, a kreditjük nem jönne vissza, és értesítést sem kapnának.
- * Arra a lemondás (`cancelSessionByStudio`) való — az mindenkit
- * visszatérít és értesít, és az óra nyoma megmarad.
+ * Only when nobody is on it. Where there are participants, deletion is
+ * the wrong tool: a class people had signed up for would vanish without
+ * a trace, their credits would not come back, and they would get no
+ * notification. Cancellation (`cancelSessionByStudio`) is for that — it
+ * refunds and notifies everyone, and the class stays on record.
  *
- * A lemondott, üres órát viszont lehet takarítani: az már senkié.
+ * A cancelled, empty class can be tidied away: it belongs to nobody.
  */
 export const deleteSession = async (
   payload: Payload,
@@ -129,8 +130,8 @@ export const deleteSession = async (
   })
   if (elo.totalDocs > 0) return { ok: false, reason: 'hiba.ora_van_jelentkezo' }
 
-  // A lemondott foglalások és a várólista törölhetők vele együtt:
-  // önmagukban semmit nem jelentenek.
+  // Cancelled bookings and waitlist entries can go with it: on their
+  // own they mean nothing.
   const maradek = await payload.find({
     collection: 'bookings',
     where: { session: { equals: sessionId } },

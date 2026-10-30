@@ -2,20 +2,20 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { LANG_SUTI } from '@/lib/lang'
 
 /**
- * Két dolgot intéz, mindkettőt egy helyen.
+ * Handles two things, both in one place.
  *
- * 1. A marketing oldal nyelve átragad a foglalórendszerre. Aki a `/en`
- *    lapon jár, annak a `/buchen` is angolul jelenjen meg, és fordítva —
- *    anélkül, hogy minden hivatkozásra rá kellene aggatni egy `?lang=`
- *    paramétert. A `/` ugyanígy németre állít.
+ * 1. The marketing site's language carries over to the booking system.
+ *    Someone on `/en` should get `/buchen` in English too, and the
+ *    other way round — without hanging a `?lang=` parameter on every
+ *    link. `/` sets German the same way.
  *
- * 2. Beteszi az útvonalat egy fejlécbe, mert a szerver komponensek nem
- *    látják. A foglalórendszer elrendezése ebből tudja, hova térjen
- *    vissza a nyelvváltó.
+ * 2. It puts the pathname into a header, because server components
+ *    cannot see it. The booking system's layout uses that to know
+ *    where the language switch should return to.
  *
- * A foglalórendszer nyelvváltója nem itt dolgozik, hanem egy
- * szerver-actionben (`src/app/(frontend)/actions.ts`), mert az a
- * `users.language` mezőt is frissíti a belépett felhasználónál.
+ * The booking system's own language switch does not work here but in a
+ * server action (`src/app/(frontend)/actions.ts`), because that also
+ * updates the `users.language` field for a signed-in user.
  */
 export const UTVONAL_FEJLEC = 'x-site-pathname'
 
@@ -31,8 +31,8 @@ export function middleware(request: NextRequest) {
   const nyelv = talalat?.[1]
   const valtozik = Boolean(nyelv) && request.cookies.get(LANG_SUTI.nev)?.value !== nyelv
 
-  // A kérés sütijét is átírjuk, hogy a mostani renderelés már ezt lássa,
-  // ne csak a következő kérés.
+  // Rewrite the cookie on the request too, so the current render
+  // already sees it, not only the next request.
   if (valtozik && nyelv) request.cookies.set(LANG_SUTI.nev, nyelv)
 
   const headers = new Headers(request.headers)

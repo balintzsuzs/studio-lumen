@@ -5,18 +5,19 @@ import { forditó, type Fordito } from './i18n'
 import { isLang, type Lang } from './lang'
 
 /**
- * Értesítések. Minden levél itt készül, egy helyen.
+ * Notifications. Every email is composed here, in one place.
  *
- * A levél nyelve a CÍMZETTÉ (`users.language`), nem azé, aki a műveletet
- * elindította: ha Nadine németül mond le egy órát, a Elin óráira járó
- * angol ügyfél akkor is angolul kapja az értesítést.
+ * An email is in the RECIPIENT's language (`users.language`), not that
+ * of whoever triggered the action: if the owner cancels a class in
+ * German, an English-speaking customer still gets the notice in
+ * English.
  *
- * A prototípusban nincs e-mail szolgáltató beállítva, ezért a Payload a
- * konzolra írja a levelet — a tartalmat viszont a `notifications`
- * gyűjteménybe is elmentjük, így az admin felületen visszakereshető, és
- * a tesztek is ellenőrizhetik. Élesítéskor csak egy adaptert kell a
- * `payload.config.ts`-be tenni (pl. `@payloadcms/email-resend`), a
- * hívások maradnak.
+ * No email provider is configured in this prototype, so Payload writes
+ * the message to the console — but the content is also saved to the
+ * `notifications` collection, which makes it searchable in the admin
+ * and checkable by the tests. Going live only means adding an adapter
+ * to `payload.config.ts` (`@payloadcms/email-resend`, say); the call
+ * sites stay as they are.
  */
 
 export type NotificationType =
@@ -31,12 +32,12 @@ export type NotificationType =
 const idOf = (v: unknown): number =>
   typeof v === 'object' && v !== null ? (v as { id: number }).id : (v as number)
 
-/** A címzett nyelve, alapértelmezés szerint német. */
+/** The recipient's language, German by default. */
 const nyelve = (user: any): Lang => (isLang(user?.language) ? user.language : 'de')
 
 const SITE = () => process.env.SITE_URL ?? 'http://localhost:3000'
 
-/** Egy levél elküldése és naplózása. Hibát nem dob: a napló rögzíti. */
+/** Sends and logs one email. Never throws: the log records the outcome. */
 export const send = async (
   payload: Payload,
   opts: {
@@ -61,8 +62,8 @@ export const send = async (
 
   try {
     await payload.sendEmail({ to: user.email, subject: opts.subject, text: opts.body })
-    // Adapter nélkül a Payload a konzolra ír: ez nem hiba, de nem is
-    // kézbesítés — ezért külön állapot.
+    // Without an adapter Payload writes to the console: that is not a
+    // failure, but it is not delivery either — hence its own status.
     status = process.env.EMAIL_ADAPTER_READY === 'true' ? 'sent' : 'logged'
   } catch (e) {
     status = 'failed'
@@ -91,11 +92,11 @@ export const send = async (
 const greeting = (t: Fordito, user: any) =>
   t('level.megszolitas', { nev: user?.firstName ?? t('level.megszolitas_altalanos') })
 
-/** A megszólítástól az aláírásig — minden levél így épül fel. */
+/** From the greeting to the sign-off — every email is built this way. */
 const level = (t: Fordito, user: any, torzs: string) =>
   `${greeting(t, user)}\n\n${torzs}${t('level.alairas')}`
 
-/** Óra megnevezése levélbe: típus, stúdió, időpont. */
+/** Naming a class in an email: type, studio, time. */
 const describe = async (
   payload: Payload,
   sessionId: number,
@@ -109,9 +110,9 @@ const describe = async (
   return `${type}${hol}, ${dateTimeLabel(s.startsAt, lang)}`
 }
 
-// ---------------------------------------------------------------- várólista
+// ---------------------------------------------------------------- waitlist
 
-/** Felszabadult hely kiajánlása. */
+/** Offering a freed-up spot. */
 export const waitlistOffer = async (
   payload: Payload,
   userId: number,
@@ -135,7 +136,7 @@ export const waitlistOffer = async (
   })
 }
 
-/** Röviddel az óra előtt: a hely mindenki számára szabad. */
+/** Shortly before the class: the spot is open to everyone. */
 export const waitlistReleased = async (payload: Payload, userId: number, sessionId: number) => {
   const user: any = await payload.findByID({ collection: 'users', id: userId, depth: 0 })
   const lang = nyelve(user)
@@ -153,7 +154,7 @@ export const waitlistReleased = async (payload: Payload, userId: number, session
   })
 }
 
-// ------------------------------------------------------- óramódosítás
+// ------------------------------------------------------- class changes
 
 export type SessionChange = {
   oldStartsAt?: string
@@ -165,16 +166,17 @@ export type SessionChange = {
 }
 
 /**
- * Értesítés az óra módosításáról minden aktív foglalónak.
- * Csak akkor küld, ha van tényleges, az ügyfelet érintő változás.
+ * Notifies everyone with an active booking that the class has changed.
+ * Only sends when there is a real change that concerns the customer.
  */
 export const sessionChanged = async (
   payload: Payload,
   sessionId: number,
   change: SessionChange,
 ): Promise<{ notified: number }> => {
-  // Van-e egyáltalán az ügyfelet érintő változás? A sorok szövege
-  // címzettenként készül, mert a dátum és a címke is nyelvfüggő.
+  // Is there any change that concerns the customer at all? The lines
+  // are composed per recipient, because both the date and the labels
+  // depend on the language.
   const idoValtozott = Boolean(
     change.oldStartsAt && change.newStartsAt && change.oldStartsAt !== change.newStartsAt)
   const oktatoValtozott = Boolean(
@@ -221,7 +223,7 @@ export const sessionChanged = async (
   return { notified }
 }
 
-/** Értesítés az óra lemondásáról. A kredit visszaírásáról a hívó dönt. */
+/** Notifies that the class was cancelled. Refunding the credit is the caller's call. */
 export const sessionCancelled = async (
   payload: Payload,
   sessionId: number,
@@ -260,7 +262,7 @@ export const sessionCancelled = async (
   return { notified }
 }
 
-// ------------------------------------------------------------- abo
+// ------------------------------------------------------------- passes
 
 const MOD_KULCS = {
   on_site: 'level.mod_on_site',
@@ -270,8 +272,9 @@ const MOD_KULCS = {
 } as const
 
 /**
- * Megrendelés visszaigazolása. A fizetési útmutató a Buchungsregeln
- * beállításból jön — nem írunk ide bankadatot, azt Nadine adja meg.
+ * Order confirmation. The payment instructions come from the
+ * Buchungsregeln setting — no bank details are written here, the studio
+ * fills those in.
  */
 export const aboOrdered = async (
   payload: Payload,
@@ -300,7 +303,7 @@ export const aboOrdered = async (
   return { ok: r.ok }
 }
 
-/** Az abo aktiválása: innentől lehet foglalni. */
+/** Activating the pass: booking is possible from here on. */
 export const aboActivated = async (
   payload: Payload,
   userId: number,
@@ -318,7 +321,7 @@ export const aboActivated = async (
     body: level(t, user, t('level.aktivalas_torzs', {
       abo: abo.aboType?.name ?? '',
       db: abo.creditsRemaining ?? 0,
-      // Csak a nap kell, az óra nem: a lejárat napra pontos.
+      // Only the day is needed, not the time: expiry is day-precise.
       ervenyes: dateTimeLabel(abo.expiresAt, lang).split(',').slice(0, 2).join(','),
       link: `${SITE()}/buchen`,
     })),

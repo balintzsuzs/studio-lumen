@@ -1,11 +1,11 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Egy stúdió = egy terem. A reformerek pozícióját sor/oszlop rácson
- * tároljuk, ebből rajzolja a foglalási felület a teremtérképet.
+ * One studio = one room. Reformer positions are stored on a row/column
+ * grid, and the booking screen draws the floor plan from it.
  *
- * Zürich: 5 gép, a tükör előtt 2, mögötte 3.
- * Zug: 6 gép, hosszabb terem, 2 + 2 + 2.
+ * Zürich: 6 machines, three rows of 2, the first row at the mirror.
+ * Zug: 4 machines, a smaller room, two rows of 2.
  */
 export const Studios: CollectionConfig = {
   slug: 'studios',

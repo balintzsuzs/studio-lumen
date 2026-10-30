@@ -1,9 +1,10 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Egy ügyfél konkrét, megvásárolt abo-ja. A `creditsRemaining` az
- * egyetlen forrás az egyenlegre; a foglalás és a lemondás ezt írja,
- * mindig tranzakcióban, hogy két egyidejű foglalás ne ronthassa el.
+ * One customer's actual purchased pass. `creditsRemaining` is the
+ * single source of truth for the balance; booking and cancelling write
+ * it, always inside a transaction, so two simultaneous bookings cannot
+ * corrupt it.
  */
 export const Abos: CollectionConfig = {
   slug: 'abos',
@@ -50,8 +51,8 @@ export const Abos: CollectionConfig = {
       },
     },
     {
-      // A fizetés módja az AGB szerint: helyszíni készpénz vagy
-      // banki átutalás. A kártya/TWINT csak később, Stripe-pal.
+      // Payment method as modelled: cash on site or bank transfer.
+      // Card and TWINT would come later, with Stripe.
       name: 'paymentMethod',
       type: 'select',
       label: 'Zahlungsart',

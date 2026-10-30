@@ -28,14 +28,16 @@ type Search = Promise<{
 }>
 
 /**
- * Stúdió nézet, naptárral.
+ * The studio view, with a calendar.
  *
- * Minden oktató MINDEN órát látja, nem csak a sajátját: négyen tartják
- * az órákat és beugranak egymás helyett, és aki beugrik, annak óra előtt
- * tudnia kell, ki jön. A jelenléti lista az óra saját oldalán van.
+ * Every instructor sees EVERY class, not only their own: four of them
+ * teach and they cover for each other, and whoever steps in needs to
+ * know beforehand who is coming. The register itself is on the class's
+ * own page.
  *
- * A doboz jelzése itt a telítettség (`3/5`), nem a szabad hely — az
- * oktatót az érdekli, hányan jönnek, nem az, hány hely maradt.
+ * The badge here shows how full a class is (`3/5`), not how many spots
+ * are free — an instructor cares how many people are coming, not how
+ * much room is left.
  */
 export default async function Unterricht({ searchParams }: { searchParams: Search }) {
   const { ansicht, datum, fehler, nap, ido, geloescht } = await searchParams
@@ -47,8 +49,8 @@ export default async function Unterricht({ searchParams }: { searchParams: Searc
   const t = forditó(lang)
   const payload = await getPayload({ config })
 
-  // A lement órák lezárása és a várólista itt kap ütemet: az oktató
-  // amúgy is naponta megnyitja ezt a lapot.
+  // Closing finished classes and the waitlist get their beat here: the
+  // instructor opens this page every day anyway.
   await maybeTick(payload)
 
   const mod = naptarMod(ansicht)
@@ -56,13 +58,14 @@ export default async function Unterricht({ searchParams }: { searchParams: Searc
   const { tol, ig } = naptarLekerdezes(mod, horgony)
 
   /*
-   * Az űrlap alapértelmezett napja a nézett nap — kivéve, ha az ma van
-   * vagy korábbi: a mai 09:00 jó eséllyel elmúlt, és a form rögtön
-   * hibával jönne vissza. Ilyenkor holnapot ajánlunk.
+   * The form defaults to the day being viewed — unless that is today
+   * or earlier: today's 09:00 has most likely passed, and the form
+   * would come straight back with an error. In that case we suggest
+   * tomorrow.
    */
   const alapNap = horgony > ma() ? horgony : napPlusz(ma(), 1)
 
-  // Az óra felvételéhez való választéklisták — csak adminnak.
+  // The dropdowns for creating a class — admin only.
   const admin = user.role === 'admin'
   const [tipusok, studiok, oktatok] = admin
     ? await Promise.all([
@@ -94,13 +97,14 @@ export default async function Unterricht({ searchParams }: { searchParams: Searc
   )
 
   /*
-   * Egyetlen foglalás-lekérdezés mindenre: a résztvevők neveire, a
-   * létszámra és a lement órák összegzésére is. depth 2, mert az abo
-   * TÍPUSA (neve, kreditje) is kell — egy szinten csak azonosító jönne.
+   * One booking query for everything: the participants' names, the
+   * headcount, and the summary for finished classes. depth 2, because
+   * the pass's TYPE (its name, its credits) is needed too — at one
+   * level only an id would come back.
    *
-   * A lement óráknál a megjelent és a nem megjelent is beleszámít a
-   * létszámba; a `getTeltseg` csak az aktívakat nézi, ami óra után már
-   * nulla lenne.
+   * For finished classes both those who attended and those who did not
+   * count towards the headcount; `getTeltseg` looks only at active
+   * bookings, which after a class would already be zero.
    */
   const SZAMIT = ['booked', 'attended', 'no_show'] as const
   const foglalasok = orak.length
@@ -178,16 +182,18 @@ export default async function Unterricht({ searchParams }: { searchParams: Searc
       </header>
 
       <p className="lead">{t('okt.lead_admin')}</p>
-      {/* A régi listában ez a lement órák fölött állt. A naptárban is kell:
-          enélkül nem derül ki, hol lehet jelenlétet felvenni. */}
+      {/* In the old list this sat above the finished classes. The
+          calendar needs it too: without it there is no hint of where
+          attendance can be recorded. */}
       <p className="hint">{t('okt.elmult_hint', { ora: AUTO_CLOSE_HOURS })}</p>
 
       {szotarKulcs(fehler) && <p className="alert">{t(fehler)}</p>}
       {geloescht && <p className="ok">{t('ujora.torolve')}</p>}
 
       {admin && tipusok && studiok && oktatok && (
-        /* Nyitható blokk, nem állandóan kinyitott űrlap: a lap
-           elsődleges dolga a naptár, az óra felvétele ritka művelet. */
+        /* A collapsible block rather than a permanently open form:
+           the page is primarily the calendar, and creating a class is
+           a rare operation. */
         <details className="ujora">
           <summary>{t('ujora.nyit')}</summary>
           <p className="hint">{t('ujora.hint')}</p>

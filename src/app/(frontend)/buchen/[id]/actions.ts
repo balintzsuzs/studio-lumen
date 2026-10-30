@@ -31,7 +31,7 @@ export async function book(formData: FormData) {
   redirect('/konto?gebucht=1')
 }
 
-/** Feliratkozás a várólistára, ha az óra tele van. */
+/** Joining the waitlist when the class is full. */
 export async function joinList(formData: FormData) {
   const sessionId = Number(formData.get('sessionId'))
   const user = await getCurrentUser()
@@ -45,7 +45,7 @@ export async function joinList(formData: FormData) {
   redirect(`/buchen/${sessionId}?warteliste=${result.position}`)
 }
 
-/** Leiratkozás a várólistáról. */
+/** Leaving the waitlist. */
 export async function leaveList(formData: FormData) {
   const sessionId = Number(formData.get('sessionId'))
   const entryId = Number(formData.get('entryId'))
@@ -60,7 +60,7 @@ export async function leaveList(formData: FormData) {
   redirect(`/buchen/${sessionId}?abgemeldet=1`)
 }
 
-/** A kiajánlott hely elfogadása. */
+/** Accepting the offered spot. */
 export async function claim(formData: FormData) {
   const sessionId = Number(formData.get('sessionId'))
   const entryId = Number(formData.get('entryId'))

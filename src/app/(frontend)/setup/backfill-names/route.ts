@@ -1,7 +1,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 
-/** A meglévő felhasználók `fullName` mezőjének feltöltése. Egyszeri. */
+/** Backfills the `fullName` field on existing users. One-off. */
 export async function POST() {
   if (process.env.ALLOW_SEED !== 'true') {
     return Response.json({ error: 'deaktiviert' }, { status: 403 })

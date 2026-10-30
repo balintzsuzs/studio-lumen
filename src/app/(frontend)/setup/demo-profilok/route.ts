@@ -2,12 +2,12 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 
 /**
- * Demó-profilok a jelenléti listához: hogy az oktatói nézetben látszódjon
- * a három eset, amit Nadine kért — matten-ügyfél, Young Member, és
- * egészségügyi megjegyzés.
+ * Demo profiles for the register: so the instructor view shows all
+ * three cases — a mat-Pilates customer, a Young Member, and a health
+ * note.
  *
- * KITALÁLT adatok, demó-fiókokon. Valódi ügyfél egészségügyi adatát
- * soha ne vigyük be ide.
+ * INVENTED data, on demo accounts. Never put a real customer's health
+ * data in here.
  *
  *   curl -X POST http://localhost:3000/setup/demo-profilok
  */

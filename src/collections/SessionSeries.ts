@@ -1,13 +1,13 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Ismétlődő óra ("minden hétfő 09:00").
+ * A recurring class ("every Monday 09:00").
  *
- * A sorozat csak a szabály — a konkrét órák továbbra is a `sessions`
- * rekordok, mert azokhoz kötődnek a foglalások. A sorozat mentése
- * legenerálja a hiányzó órákat az időszakra; egy már legenerált óra
- * egyedi szerkesztése "leszakítja" a sorozatról (`detached`), így a
- * későbbi sorozat-szintű módosítás nem írja vissza.
+ * The series is only the rule — the actual classes are still `sessions`
+ * records, because that is what bookings attach to. Saving the series
+ * generates the missing classes for the period; editing one already
+ * generated class individually "detaches" it from the series
+ * (`detached`), so a later series-level change does not overwrite it.
  */
 export const SessionSeries: CollectionConfig = {
   slug: 'session-series',

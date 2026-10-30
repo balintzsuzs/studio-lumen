@@ -3,12 +3,12 @@ import type { Payload } from 'payload'
 import { sessionChanged } from './notify'
 
 /**
- * Egy óra módosítása után értesíti a foglalókat — de csak akkor, ha a
- * változás őket érinti: időpont, oktató vagy stúdió. A hossz, a hinweis
- * vagy egy belső mező átírása nem ér levelet.
+ * Notifies the people booked after a class is changed — but only when
+ * the change concerns them: time, instructor or studio. Editing the
+ * duration, the note or an internal field is not worth an email.
  *
- * Külön fájlban van, hogy a `sessions` gyűjtemény ne importálja a teljes
- * értesítési réteget körkörösen.
+ * It lives in its own file so that the `sessions` collection does not
+ * import the whole notification layer circularly.
  */
 
 const idOf = (v: unknown): number | undefined => {
@@ -39,7 +39,7 @@ export const notifyIfRelevantChange = async (
   const studioChanged = idOf(doc.studio) !== idOf(previousDoc.studio)
   if (!timeMoved && !instructorChanged && !studioChanged) return { notified: 0 }
 
-  // Lemondott órát nem "módosítottunk" — arról a lemondás értesít.
+  // A cancelled class was not "changed" — the cancellation notifies about that.
   if (doc.status === 'cancelled') return { notified: 0 }
 
   return sessionChanged(payload, doc.id, {

@@ -8,16 +8,16 @@ import { getCurrentUser } from '@/lib/auth'
 import { isLang, LANG_SUTI } from '@/lib/lang'
 
 /**
- * A foglalórendszer nyelvváltója.
+ * The booking system's language switch.
  *
- * Két dolgot csinál: beírja a `lang` sütit, és ha van belépett
- * felhasználó, a `users.language` mezőt is frissíti. Így a választás
- * a következő gépen is megmarad, és az értesítő levelek is azon a
- * nyelven érkeznek, amit az ügyfél az oldalon választott.
+ * It does two things: writes the `lang` cookie, and, if someone is
+ * signed in, updates their `users.language` field too. That way the
+ * choice survives onto the next machine, and notification emails
+ * arrive in the language the customer picked on the site.
  *
- * Azért szerver-action és nem sima hivatkozás, mert a mentéshez
- * írni kell az adatbázisba — egy linkkel az nem menne. JavaScript
- * nélkül is működik, mert sima űrlap-beküldés.
+ * It is a server action rather than a plain link because saving means
+ * writing to the database, which a link cannot do. It works without
+ * JavaScript, being an ordinary form submission.
  */
 export async function setLanguage(formData: FormData) {
   const kert = String(formData.get('lang') ?? '')
@@ -37,13 +37,14 @@ export async function setLanguage(formData: FormData) {
         overrideAccess: true,
       })
     } catch {
-      // A süti már megvan, a lap a kért nyelven jelenik meg. Ha a mentés
-      // nem sikerült, legfeljebb egy másik gépen kell újra választani.
+      // The cookie is already set, so the page renders in the chosen
+      // language. If the save failed, the worst case is picking again
+      // on another machine.
     }
   }
 
-  // Oda térünk vissza, ahonnan a látogató jött. Csak saját útvonalra,
-  // hogy a mezőt ne lehessen idegen oldalra irányításra használni.
+  // Return to wherever the visitor came from. Only to our own paths,
+  // so the field cannot be used to redirect to another site.
   const vissza = String(formData.get('next') ?? '/buchen')
   redirect(vissza.startsWith('/') && !vissza.startsWith('//') ? vissza : '/buchen')
 }

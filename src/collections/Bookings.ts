@@ -1,12 +1,13 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Egy foglalás: ki, melyik órára, melyik gépre.
+ * One booking: who, for which class, on which machine.
  *
- * Az `uniqueReformerPerSession` index hiányát az alkalmazásrétegben
- * pótoljuk: a foglalás létrehozása tranzakcióban ellenőrzi, hogy a gép
- * szabad-e. SQLite alatt ez elég, Postgresre váltáskor érdemes valódi
- * egyedi indexet is tenni (session + reformer, ahol status = 'booked').
+ * There is no `uniqueReformerPerSession` index; the application layer
+ * makes up for it by checking inside a transaction that the machine is
+ * free. Under SQLite that is enough; when moving to Postgres it is
+ * worth adding a real unique index (session + reformer, where
+ * status = 'booked').
  */
 export const Bookings: CollectionConfig = {
   slug: 'bookings',
@@ -20,8 +21,9 @@ export const Bookings: CollectionConfig = {
     read: ({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'admin') return true
-      // Az oktatók minden foglalást látnak, nem csak a saját óráikét:
-      // beugranak egymás helyett, és akkor is tudniuk kell, ki jön.
+      // Instructors see every booking, not only their own classes':
+      // they cover for each other, and still need to know who is
+      // coming.
       if (user.role === 'instructor') return true
       return { customer: { equals: user.id } }
     },
@@ -58,9 +60,10 @@ export const Bookings: CollectionConfig = {
     { name: 'bookedAt', type: 'date', label: 'Gebucht am', required: true },
     { name: 'cancelledAt', type: 'date', label: 'Storniert am' },
     {
-      // Külön tároljuk, mert a "guthaben visszajárt-e" nem ugyanaz:
-      // egy késői lemondást a stúdió jóindulatból is visszatéríthet,
-      // de a tény, hogy késő volt, a statisztikában maradjon meg.
+      // Stored separately, because "was the credit refunded" is not
+      // the same question: the studio may refund a late cancellation
+      // out of goodwill, but the fact that it was late should stay in
+      // the record.
       name: 'cancellationType',
       type: 'select',
       label: 'Art der Stornierung',

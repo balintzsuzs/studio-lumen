@@ -1,17 +1,18 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Megvásárolható abo-típus. A stúdiókban szokásos bérletmodellt képezi le:
- * kreditszám + hónapban mért érvényesség, plusz a kedvezményes sáv.
+ * A pass type that can be bought. It models the usual studio pass:
+ * a number of credits plus a validity measured in months, with a
+ * reduced tier alongside.
  *
- * Jelenlegi árak (2026-10):
- *   Schnupperlektion  CHF  30 /  1 kredit /  1 hét
- *   Einzelstunde      CHF  49 /  1 kredit /  1 hét
- *   5er Abo           CHF 230 /  5 kredit /  5 hónap
- *   10er Abo          CHF 420 / 10 kredit /  7 hónap
- *   20er Abo          CHF 800 / 20 kredit / 12 hónap
- *   3er Abo           CHF 138 /  3 kredit /  3 hónap (csak utalvánnyal)
- * Young Member (16-24) és matten-résztvevő: 20 / 45 / 207 / 378
+ * Prices (invented, as is everything else in this project):
+ *   Schnupperlektion  CHF  35 /  1 credit /  1 week
+ *   Einzelstunde      CHF  45 /  1 credit /  1 week
+ *   5er Abo           CHF 215 /  5 credits /  5 months
+ *   10er Abo          CHF 400 / 10 credits /  7 months
+ *   20er Abo          CHF 760 / 20 credits / 12 months
+ *   3er Abo           CHF 129 /  3 credits /  3 months (voucher only)
+ * Young Member (16-24) and mat Pilates students: 25 / 40 / 195 / 360
  */
 export const AboTypes: CollectionConfig = {
   slug: 'abo-types',

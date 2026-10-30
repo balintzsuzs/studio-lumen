@@ -4,10 +4,10 @@ import { redirect } from 'next/navigation'
 import { getClient } from '@/lib/booking'
 
 /**
- * A kapcsolati űrlap feldolgozása.
+ * Handling the contact form.
  *
- * Nyilvános végpont, ezért a bemenetet itt vágjuk és ellenőrizzük —
- * nem bízunk a böngésző `required` attribútumában.
+ * A public endpoint, so the input is trimmed and validated here — we
+ * do not trust the browser's `required` attribute.
  */
 export async function sendContact(formData: FormData) {
   const take = (k: string, max: number) =>

@@ -1,18 +1,18 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Zárva tartás: olyan időszak, amikor nincsenek órák.
+ * A closure: a period with no classes.
  *
- * Óratípusonként és stúdiónként eltérhet, ezért nem fix szabály,
- * hanem felvehető időszak:
+ * It can differ per class type and per studio, so it is not a fixed
+ * rule but a period you enter:
  *
- *   - Matten Pilates: az Arth-Zürich iskolai szünetekben nincs óra
- *     (így szól a matten AGB)
- *   - Reformer: iskolai szünetben IS van óra
- *   - Karácsony és újév hete: a matten AGB szerint zárva; reformerre
- *     a tulajdonosnak kell megerősítenie, ezért nincs előre beégetve
+ *   - Mat Pilates: no classes during the local school holidays
+ *     (that is what the mat terms say)
+ *   - Reformer: classes DO run during school holidays
+ *   - Christmas and New Year week: closed under the mat terms; for
+ *     reformer the owner has to confirm it, so it is not hard-coded
  *
- * Üresen hagyott `classTypes` vagy `studios` = mindre vonatkozik.
+ * An empty `classTypes` or `studios` means it applies to all of them.
  */
 export const ClosurePeriods: CollectionConfig = {
   slug: 'closure-periods',

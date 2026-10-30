@@ -3,10 +3,10 @@ import { propagateToFutureSessions } from '../lib/series'
 import { notifyIfRelevantChange } from '../lib/session-notice'
 
 /**
- * Egy konkrét megtartott óra: típus, oktató, stúdió, időpont.
- * A férőhely nincs külön tárolva: a stúdió aktív reformereinek
- * száma adja, így egy gép karbantartásba tétele automatikusan
- * csökkenti a kapacitást.
+ * One actual class: type, instructor, studio, time.
+ * Capacity is not stored separately: it is the number of active
+ * reformers in the studio, so putting a machine into maintenance
+ * reduces capacity automatically.
  */
 export const Sessions: CollectionConfig = {
   slug: 'sessions',
@@ -47,9 +47,10 @@ export const Sessions: CollectionConfig = {
     },
     {
       /*
-       * Az óra nyelve. Üresen hagyva az oktató nyelvei érvényesek —
-       * így egy új oktató felvételekor nem kell 48 órát átírni.
-       * Csak akkor töltsd ki, ha ez az egy óra eltér.
+       * The language of the class. Left empty, the instructor's own
+       * languages apply — so taking on a new instructor does not mean
+       * editing 48 classes. Fill this in only when this one class
+       * differs.
        */
       name: 'languages',
       type: 'select',
@@ -65,8 +66,9 @@ export const Sessions: CollectionConfig = {
     },
     { name: 'note', type: 'text', label: 'Hinweis' },
     {
-      // A lemondás oka külön mezőben, nem a `note`-ban: a hinweis Nadine
-      // saját megjegyzése, azt egy automatikus lemondás nem írhatja felül.
+      // The cancellation reason gets its own field, not `note`: the
+      // note is the studio's own remark, and an automatic cancellation
+      // must not overwrite it.
       name: 'cancellationReason',
       type: 'text',
       label: 'Grund der Absage',
@@ -91,8 +93,8 @@ export const Sessions: CollectionConfig = {
       },
     },
     {
-      // A "csak ez / ez és az összes jövőbeli" választás. Mentés után
-      // az afterChange hook ennek megfelelően terjeszti a változást.
+      // The "this one only / this and all future" choice. After saving,
+      // the afterChange hook propagates the change accordingly.
       name: 'editScope',
       type: 'select',
       label: 'Änderung gilt für',
@@ -111,8 +113,8 @@ export const Sessions: CollectionConfig = {
   hooks: {
     beforeChange: [
       ({ data, originalDoc, operation, context }) => {
-        // Egyetlen alkalom szerkesztése leszakítja azt a sorozatról
-        // (ugyanaz a konvenció, mint a Mariana Tek-nél).
+        // Editing a single occurrence detaches it from the series
+        // (the same convention Mariana Tek uses).
         if (
           operation === 'update' &&
           !context?.skipSeriesPropagation &&
@@ -127,14 +129,14 @@ export const Sessions: CollectionConfig = {
     afterChange: [
       async ({ doc, operation, req, context }) => {
         if (operation !== 'update') return
-        // A továbbterjesztés maga is update-eket indít — ne hívja magát újra.
+        // Propagation itself triggers updates — it must not re-enter itself.
         if (context?.skipSeriesPropagation) return
         if (!doc.series || doc.editScope !== 'this_and_future') return
         await propagateToFutureSessions(req.payload, doc, req)
       },
-      // Értesítés az időpont, oktató vagy stúdió változásáról. A továbbterjesztés
-      // nem állítja be a `skipChangeNotice`-t, így a sorozat többi órájának
-      // foglalói is megkapják a levelet.
+      // Notifies about a change of time, instructor or studio.
+      // Propagation does not set `skipChangeNotice`, so the people
+      // booked into the series' other classes get the email too.
       async ({ doc, previousDoc, operation, req, context }) => {
         if (operation !== 'update') return
         if (context?.skipChangeNotice) return

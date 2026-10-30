@@ -1,7 +1,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 
-/** Demó-abo az admin felhasználónak, hogy a felületen is lehessen foglalni. */
+/** A demo pass for the admin user, so booking can be tried from the UI. */
 export async function POST() {
   if (process.env.ALLOW_SEED !== 'true') {
     return Response.json({ error: 'deaktiviert' }, { status: 403 })

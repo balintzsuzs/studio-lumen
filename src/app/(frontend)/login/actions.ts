@@ -8,9 +8,10 @@ import config from '@payload-config'
 export async function login(formData: FormData) {
   const email = String(formData.get('email') ?? '')
   const password = String(formData.get('password') ?? '')
-  // Üres `next` esetén a szerep dönti el, hova érkezik: az oktató és az
-  // admin az óráihoz, az ügyfél az órarendhez. Enélkül az oktató is a
-  // foglalási lapon landolt, és ugyanazt látta, mint egy vendég.
+  // With an empty `next`, the role decides where they land:
+  // instructors and admins at their classes, customers at the
+  // schedule. Without this an instructor landed on the booking page
+  // too, seeing exactly what a guest sees.
   const kertUtvonal = String(formData.get('next') ?? '')
 
   let token: string | undefined

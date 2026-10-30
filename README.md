@@ -18,598 +18,585 @@ when a pass expires mid-booking, when the studio cancels a class with five
 people already in it. Those decisions are what the rest of this document is
 about.
 
-> The detailed notes below are in Hungarian — they are the working log I kept
-> while building this, kept as-is rather than translated after the fact.
-
----
-
-## Studio Lumen · Weboldal és foglalórendszer (prototípus)
-
-Next.js + Payload CMS. A **marketing weboldal**, a **foglalórendszer** és az
-**admin** egy projekt, egy deploy, közös navigációval.
-
-| Útvonal | Mi van ott |
+| Route | What is there |
 |---|---|
-| `/` | a weboldal nyitólapja (Angebot, Galerie, Team, Preise, Kontakt) |
-| `/demo` | útmutató a demóhoz: mit érdemes végigkattintani |
-| `/buchen` | órarend, `/buchen/[id]` teremtérképpel és várólistával |
-| `/abos` | árak és abo-megrendelés |
-| `/konto` | az ügyfél abo-i, foglalásai, lemondás |
-| `/unterricht` | oktatói nézet: saját órák, jelenlét, lemondás |
-| `/verwaltung` | Nadine napi teendői: nyitott abo-megrendelések |
-| `/admin` | a teljes Payload adminisztráció |
+| `/` | the website's home page (Angebot, Galerie, Team, Preise, Kontakt) |
+| `/en` | the same, in English |
+| `/demo` | the guide to the demo: what is worth clicking through |
+| `/buchen` | the schedule; `/buchen/[id]` with floor plan and waitlist |
+| `/abos` | prices and pass ordering |
+| `/konto` | the customer's passes, bookings and cancellations |
+| `/unterricht` | studio view: classes, register, cancellation |
+| `/kunden` | customer list and profiles |
+| `/verwaltung` | the owner's daily to-do: open pass orders |
+| `/admin` | the full Payload admin |
 
-## Indítás
+## Running it
 
 ```bash
+npm install
 npm run dev
 ```
 
-- Nyilvános oldal: http://localhost:3000
-- Adminisztráció: http://localhost:3000/admin
+- Public site: http://localhost:3000
+- Admin: http://localhost:3000/admin
 
-A demó két belépése a `/demo` lapon van kiírva. Az első admin fiókot a
-`/setup/admin` útvonal hozza létre.
+The demo's two logins are printed on the `/demo` page. The first admin account
+is created by the `/setup/admin` route.
 
-## Mi van kész
+## What is built
 
-**Adatmodell és admin.** Nadine a `/admin` címen belép és szerkeszt.
+**Data model and admin.** The studio signs in at `/admin` and edits.
 
-| Gyűjtemény | Mit tárol |
+| Collection | What it holds |
 |---|---|
-| `users` | ügyfél / oktató / admin, Young Member évjárat, matten-résztvevő jelölés |
-| `studios` | Zürich és Zug, sorok száma |
-| `reformers` | gépek sor/oszlop pozícióval és állapottal (aktív, karbantartás) |
-| `class-types` | óratípusok, kreditköltség, géphasználat |
-| `session-series` | ismétlődő óra szabálya: hétköznap, időpont, időszak |
-| `sessions` | konkrét órák: típus, oktató, stúdió, időpont, sorozat-hivatkozás |
-| `bookings` | foglalás: ügyfél, óra, gép, felhasznált abo, státusz, lemondás típusa |
-| `abo-types` | megvásárolható abo-k, ár, kredit, érvényesség, tarifa |
-| `abos` | ügyfél konkrét abo-ja, maradék kredit, lejárat |
-| `waitlist-entries` | várólista sorrenddel és ajánlat-lejárattal |
-| `notifications` | kiküldött értesítések naplója, olvasható szöveggel |
-| `media` | képek |
+| `users` | customer / instructor / admin, Young Member birth year, mat-Pilates flag |
+| `studios` | Zürich and Zug, number of rows |
+| `reformers` | machines with row/column position and status (active, maintenance) |
+| `class-types` | class types, credit cost, whether machines are used |
+| `session-series` | the rule for a recurring class: weekday, time, period |
+| `sessions` | actual classes: type, instructor, studio, time, series reference |
+| `bookings` | a booking: customer, class, machine, pass used, status, cancellation type |
+| `abo-types` | the passes that can be bought: price, credits, validity, tier |
+| `abos` | a customer's actual pass, credits left, expiry |
+| `waitlist-entries` | the waitlist, with position and offer expiry |
+| `notifications` | a log of the notifications sent, in readable text |
+| `media` | images |
 
-**Beállítások** (`/admin` → Buchungsregeln): lemondási határidő (most 24 óra),
-meddig előre lehet foglalni, a várólista **lépcsőzetes ajánlati ablaka**, a
-várólista leállítási küszöbe, géphelyválasztás engedélyezése. Ezeket Nadine
-állíthatja, nem kell kódot módosítani.
+**Settings** (`/admin` → Buchungsregeln): the cancellation deadline (currently
+24 hours), the waitlist's **sliding offer window**, the waitlist lock
+threshold, and whether choosing a machine is allowed. The studio can change
+these; nobody has to touch code.
 
-**Felvett alapadatok:**
+**Seeded base data:**
 
 ```
-Zürich  5 reformer   Reihe 1 (tükör előtt): 2 gép
-                     Reihe 2:               3 gép
+Zürich  6 reformers   Row 1 (at the mirror): 2 machines
+                      Row 2:                 2 machines
+                      Row 3:                 2 machines
 
-Zug  6 reformer   Reihe 1 (tükör előtt): 2 gép
-                     Reihe 2:               2 gép
-                     Reihe 3:               2 gép
+Zug     4 reformers   Row 1 (at the mirror): 2 machines
+                      Row 2:                 2 machines
 ```
 
-Abo-típusok, a Young Member / matten-résztvevő kedvezményes sávval együtt.
-Az árak kitaláltak.
+Pass types, including the reduced tier for Young Members and mat-Pilates
+students. All prices are invented.
 
-## Alapadatok újrafelvétele
+## The website and the booking are one system
 
-A `.env`-ben `ALLOW_SEED=true` mellett:
+The marketing site's markup comes from a static HTML page through a
+**mechanical conversion**, so the approved design survives exactly;
+`src/app/site.css` is an unchanged copy of that page's stylesheet (only the
+image paths became `/bilder/`).
 
-```bash
-curl -X POST http://localhost:3000/setup/seed     # stúdiók, gépek, abo-k, óratípusok
-curl -X POST http://localhost:3000/setup/admin \
-  -H 'content-type: application/json' \
-  -d '{"email":"...","password":"...","firstName":"...","lastName":"..."}'
-```
+It gets its own route group (`src/app/(site)/`) and its **own root layout**,
+because `site.css` uses class names (`.btn`, `.hint`, `.lead`) that also appear
+in the booking system's `globals.css`. That way the two cannot collide: `/` and
+`/buchen` never render on the same page. The price is a full page load when
+moving between them, which is fine here.
 
-Mindkettő újrafuttatható, ami már létezik, azt kihagyja.
-**Élesítés előtt az `ALLOW_SEED` sort törölni kell a környezetből.**
+Three things differ from the original static page:
 
-## A weboldal és a foglalás egy rendszer
+- **navigation is a shared component** (`(site)/components/SiteNav.tsx`) that
+  knows whether you are signed in and shows your name; the static page's
+  `DE | EN` switch lives here too, with the current language marked by
+  `aria-current`
+- booking goes to **our own `/buchen` page**, not to an external system
+- the **contact form is real**: instead of a `mailto:` a server action takes
+  it and saves it to the `contact-messages` collection, where the studio sees
+  it in the admin
 
-A marketing oldal jelölése a statikus `1_website_studio_lumen/index.html`-ből
-származik, **gépi átalakítással**, hogy a jóváhagyott design pontosan
-megmaradjon; a `src/app/site.css` is annak a `styles.css`-ének változatlan
-másolata (csak a képek útvonala lett `/bilder/`).
+## Two languages: German and English
 
-Saját route group (`src/app/(site)/`) és **saját gyökér-layout**, mert a
-`site.css` olyan osztályneveket használ (`.btn`, `.hint`, `.lead`), amelyek
-a foglalórendszer `globals.css`-ében is szerepelnek. Így a kettő nem tud
-összeakadni: a `/` és a `/buchen` soha nem ugyanazon a lapon renderelődik.
-Cserébe a kettő közötti váltás teljes lapbetöltés — a mintához ez rendben van.
+Elin teaches in English, so English is not decoration. The whole system — the
+website and the booking alike — runs in two languages, and a visitor switches
+with one click.
 
-Három dolog változott az eredetihez képest:
+**The marketing site has two real routes**, because search engines need to see
+them: `/` in German and `/en` in English.
 
-- a **navigáció közös komponens** (`(site)/components/SiteNav.tsx`), ami
-  tudja, hogy be vagy-e jelentkezve, és a nevedet mutatja; a statikus
-  oldal `DE | EN` váltója is itt van, az aktuális nyelv `aria-current`-tel
-- a foglalás a **saját `/buchen` lapunkra** megy, nem külső rendszerbe
-- a **kapcsolati űrlap valódi**: a `mailto:` helyett szerver action veszi át,
-  és a `contact-messages` gyűjteménybe menti, ahol Nadine látja az adminban
+The English page was produced from the static English HTML through the **same
+mechanical conversion** as its German counterpart — the rendered DOM matches
+tag for tag, only the text differs. It is a separate route group
+(`src/app/(site-en)/`), because `<html lang>` can only be set in a root layout.
+`site.css` is shared and unchanged.
 
-Ha a statikus oldalon változik a tartalom, az átalakítás nem fut le
-magától — ott is, itt is módosítani kell. Hosszabb távon a szöveg Payloadba
-költözik, és akkor már csak egy helyen lesz.
+**The booking system runs on a single route**, and the `lang` cookie decides
+the language: those pages sit behind a login and a database, and duplicating
+that is pointless.
 
-## Két nyelv: német és angol (kész)
+The order in which the language is chosen (`src/lib/lang.ts`):
 
-Elin angolul tart órát, ezért az angol nem díszlet. Az egész rendszer
-— a weboldal és a foglalás is — két nyelven megy, és a látogató egyetlen
-kattintással vált.
+1. the `lang` cookie — written by the language switch, or by the middleware
+   when someone lands on `/en` (so from `/en`, `/buchen` opens in English too);
+2. the signed-in user's `users.language` field — this is what carries the
+   choice onto another machine;
+3. German.
 
-**A marketing oldalnak két valódi útvonala van**, mert azt a keresőknek is
-látniuk kell:
+The booking system's switch is a server action (`(frontend)/actions.ts`), not a
+plain link: besides the cookie it also saves `users.language`, so
+**notification emails go in the recipient's language** — if the owner cancels a
+class in German, an English-speaking customer still gets the notice in English.
 
-| németül | angolul |
+All wording lives in one dictionary (`src/lib/i18n.ts`), with the German and
+English version under each key. The keys are typed and cannot be mistyped. The
+`src/lib` layer's error messages also return a key rather than a finished
+sentence — translation happens on the page, where the language is known.
+
+**What deliberately does not translate:** names that come from the database —
+the passes (`5er Abo`), the class types (`Reformer Flow`) and the studios'
+cities. Those are data, not interface text; making them bilingual would mean an
+English field on the collections. That is a product decision, not an unfinished
+one.
+
+## A bug worth recording: the owner among the customers
+
+`nadine@demo.studio-lumen.ch` is the address of **Nadine Hofer's instructor
+account**. `/setup/demo-data` used to want the main demo customer at that same
+address, so it did not create a new customer at all: it hung a customer pass on
+the instructor's account — which is how Nadine ended up among the customers.
+
+Fixed by:
+
+- giving the demo customer its own, collision-free address (`sandra@demo…`);
+- making the demo data's `ensure()` function **refuse** to touch an address
+  that does not belong to a customer, so it can never overwrite an instructor
+  account again;
+- **deleting** the `/setup/fix-teachers` route. That was a one-off recovery
+  which turned every instructor in the `@demo.studio-lumen.ch` domain into a
+  customer — today it would have demoted the owner herself.
+
+A second instance of the same class of bug: `/setup/teachers` wrote the
+`instructor` role over everyone it processed, including the owner's account,
+which is an admin. An innocent re-run therefore removed her admin rights
+silently — exactly the rights without which she cannot create a class. It now
+leaves an existing admin's role alone.
+
+## Database
+
+Locally an **SQLite** file (`studio-lumen.db`), needing no external account; on
+Vercel, Postgres. **No code change is required**: `src/payload.config.ts`
+chooses the adapter from `DATABASE_URI` — anything starting with `postgres://`
+is Postgres, everything else an SQLite file.
+
+## Recurring classes
+
+One class = one `sessions` record, because bookings attach to that. The
+`session-series` is only the **rule**: "every Monday 09:00 in Zürich, from here
+to here". After saving, `/setup/series?id=…` generates the missing classes; it
+is re-runnable and does not duplicate existing ones.
+
+The time is computed **from Swiss local time**, so it does not slip at the
+daylight saving change: "every Monday 09:00" is 09:00 all year.
+
+When editing a class that came from a series, the admin asks what the change
+applies to (`Änderung gilt für`):
+
+| Choice | What happens |
 |---|---|
-| `/` | `/en` |
-| `/naturheilkunde` | `/en/naturheilkunde` |
+| **Nur diese Lektion** | only this class changes, and it **detaches** from the series (`detached`) — a later series-level change will not overwrite it |
+| **Diese und alle künftigen Lektionen der Serie** | this and every later, non-detached class takes over the type, studio, instructor, duration, status and **time of day** (each keeps its own date), and the series rule is updated too |
 
-Az angol lapok a statikus `index-en.html` és `naturheilkunde-en.html`
-fájlokból készültek, **ugyanazzal a gépi átalakítással**, mint a német
-párjuk — a renderelt DOM-juk tagról tagra megegyezik, csak a szöveg más.
-Külön route group (`src/app/(site-en)/`), mert a `<html lang>` csak
-gyökér-layoutban adható meg. A `site.css` közös és változatlan.
+This is the same convention Mariana Tek, Punchpass and Arketa use. Existing
+bookings follow the change automatically, because they point at the same class
+record.
 
-**A foglalórendszer egyetlen útvonalon fut**, a nyelvet a `lang` süti
-dönti el: azokat a lapokat bejelentkezés és adatbázis mögött szolgáljuk
-ki, azokat fölösleges megduplázni.
+## The language of a class
 
-A nyelv kiválasztásának sorrendje (`src/lib/lang.ts`):
+Classes are **60 minutes**.
 
-1. a `lang` süti — ezt a nyelvváltó írja, vagy a middleware, ha valaki
-   a `/en` lapra lép (így a `/en`-ről a `/buchen` is angolul nyílik);
-2. a bejelentkezett felhasználó `users.language` mezője — eddig semmi
-   nem használta, innentől ez tartja meg a választást másik gépen is;
-3. végül a német.
+Language is a property of the **instructor**, because in practice that is what
+decides who leads a class:
 
-A foglalórendszer váltója szerver action (`(frontend)/actions.ts`), nem
-sima hivatkozás: a süti mellett a `users.language` mezőt is menti, így az
-**értesítő levelek is a címzett nyelvén** mennek — ha Nadine németül mond
-le egy órát, a Elin óráira járó angol ügyfél akkor is angolul kapja.
-
-Minden szöveg egy szótárban van (`src/lib/i18n.ts`), kulcsonként a német
-és az angol változattal. A kulcsok típusosak, elgépelni nem lehet őket. A
-`src/lib` rétegének hibaüzenetei is kulcsot adnak vissza, nem kész mondatot
-— a fordítás a lapon történik, ott, ahol a nyelv ismert.
-
-**Ami szándékosan nem fordul:** az adatbázisból jövő nevek — az abók
-(`5er Abo`), az óratípusok (`Reformer Flow`) és a stúdiók városai. Ezek
-adatok, nem felületi szövegek; ha kétnyelvűek legyenek, a kollekciókba
-kell egy angol mező. Ez termékdöntés, nem fejlesztési maradék.
-
-## Nadine az oktatók között
-
-A `nadine@demo.studio-lumen.ch` címen **Nadine Hofer oktató** fiókja
-ül. A `/setup/demo-data` korábban ugyanerre a címre akarta a fő
-demó-ügyfelet létrehozni, ezért nem új ügyfelet csinált, hanem az oktató
-fiókjára akasztott egy ügyfél-abót — így került Nadine az ügyfelek közé.
-
-Javítva:
-
-- a demó-ügyfél saját, ütközésmentes címet kapott (`sandra@demo…`);
-- a demó-adat `ensure()` függvénye **hibát dob**, ha a címen nem ügyfél
-  ül, tehát oktatói fiókot többé nem tud felülírni;
-- a `/setup/fix-teachers` útvonal **törölve**. Ez egy egyszeri
-  helyreállítás volt, ami a `@demo.studio-lumen.ch` tartomány minden
-  oktatóját ügyféllé alakította — mára pont a tulajdonost fokozta volna le.
-  A saját leírása szerint is törölhető volt a futtatása után.
-
-Ha az éles adatbázisban Nadine ügyfélként szerepel, azt az adminban
-érdemes rendbe tenni: a szerepe legyen `instructor`, és a hozzá tartozó
-ügyfél-abót lehet törölni.
-
-## Adatbázis
-
-Prototípus: helyi **SQLite** (`studio-lumen.db`), nem kell hozzá külső fiók.
-Vercelen Postgres. **Nem kell kódot módosítani**: a `src/payload.config.ts`
-a `DATABASE_URI` alapján választ adaptert — ami `postgres://`-sel kezdődik,
-az Postgres, minden más SQLite fájl.
-
-## Ismétlődő órák (kész)
-
-Egy óra = egy `sessions` rekord, mert a foglalások ahhoz kötődnek. A
-`session-series` csak a **szabály**: „minden hétfő 09:00 Zürich, ettől
-eddig". Mentés után a `/setup/series?id=…` legenerálja a hiányzó órákat;
-újrafuttatható, a meglévőket nem duplikálja.
-
-Az időpont **svájci helyi időből** számolódik, ezért a nyári időszámítás
-váltásakor nem csúszik el: „minden hétfő 09:00" egész évben 09:00.
-
-Egy sorozatból származó óra szerkesztésénél az admin megkérdezi, mire
-vonatkozik a változás (`Änderung gilt für`):
-
-| Választás | Mi történik |
-|---|---|
-| **Nur diese Lektion** | csak ez az óra változik, és **leszakad** a sorozatról (`detached`) — a későbbi sorozat-szintű módosítás nem írja vissza |
-| **Diese und alle künftigen Lektionen der Serie** | ez és minden későbbi, le nem szakított óra átveszi a típust, stúdiót, oktatót, hosszt, állapotot és a **napszakot** (a dátumát mindegyik megtartja), és a sorozat szabálya is frissül |
-
-Ez ugyanaz a konvenció, amit a Mariana Tek, a Punchpass és az Arketa is
-használ. A meglévő foglalások automatikusan követik a változást, mert
-ugyanarra az óra-rekordra mutatnak.
-
-## Az óra nyelve (kész)
-
-Az órák **60 percesek**.
-
-A nyelv az **oktató tulajdonsága**, mert a gyakorlatban az dönti el, ki
-vezeti az órát:
-
-| Oktató | Nyelv |
+| Instructor | Language |
 |---|---|
 | Elin | EN |
 | Nadine, Aline, Jana | DE/EN |
 
-A `users.teachingLanguages` mezőben áll, és az órarenden minden óránál
-megjelenik (`DE`, `EN` vagy `DE/EN`). Ha Nadine módosítja egy oktató
-nyelvét, az **az összes óráján azonnal átüt** — nem kell egyenként
-szerkeszteni.
+It lives in `users.teachingLanguages` and appears on every class in the
+schedule (`DE`, `EN` or `DE/EN`). Changing an instructor's languages **carries
+to all their classes immediately** — there is nothing to edit one by one.
 
-Egy-egy óra eltérhet: a `sessions.languages` mező felülírja az oktatóét.
-Üresen hagyva ismét az oktató nyelvei érvényesek. Ezért nem másoljuk be a
-nyelvet minden óra rekordjába: különben egy új oktató felvételekor 48 órát
-kellene átírni.
+An individual class can differ: `sessions.languages` overrides the
+instructor's. Left empty, the instructor's languages apply again. This is why
+the language is not copied into every class record: otherwise taking on a new
+instructor would mean editing 48 classes.
 
-Ha egy oktatónál nincs nyelv megadva, az órarenden egyszerűen nem jelenik
-meg nyelv-jelölés — a foglalást nem akadályozza.
+If an instructor has no language set, no language marker appears in the
+schedule — it does not block booking.
 
-## Jelenlét és no-show (kész)
+## Attendance and no-shows
 
-A **késői lemondás** és a **meg nem jelenés** két külön tény, mert másként
-is kezeljük őket:
+A **late cancellation** and a **no-show** are two separate facts, because they
+are handled differently:
 
-| Tény | Hol látszik |
+| Fact | Where it shows |
 |---|---|
-| időben lemondta | `cancellationType = 'in_time'`, kredit visszajár |
-| későn mondta le | `cancellationType = 'late'`, kredit elveszik |
-| nem szólt, nem jött | `status = 'no_show'` |
-| ott volt | `status = 'attended'` |
+| cancelled in time | `cancellationType = 'in_time'`, credit returns |
+| cancelled late | `cancellationType = 'late'`, credit forfeited |
+| never told us, never came | `status = 'no_show'` |
+| was there | `status = 'attended'` |
 
-A lemondás típusát külön tároljuk, nem a „visszajárt-e a kredit"-ből
-következtetjük, hogy a stúdió jóindulatú visszatérítése se törölje a tényt.
+The cancellation type is stored separately rather than inferred from "did the
+credit come back", so that a goodwill refund by the studio does not erase the
+fact.
 
-`closeSession` az óra után a maradék nyitott foglalásokat no-show-ra állítja;
-az oktató ezt egyenként jelenlétre javíthatja (`markAttendance`). A
-`getReliability` ügyfélre összesíti a négy számot. A kód a
-`src/lib/attendance.ts`-ben van.
+**The marking is inverted, and that is the point.** It used to work the other
+way round: closing a class marked everyone as a no-show, and the instructor
+corrected each person who had been there. But the normal case is that someone
+who booked turns up — out of five spots, one goes empty maybe once a month. So
+the instructor was making five clicks to record nothing.
 
-## Értesítések (kész, kézbesítés nélkül)
+Now `closeSession` sets every still-open booking to `attended`, and the
+instructor's only job is to mark who was **absent**, with one button per row
+that can be undone. Classes nobody touched close themselves after
+`AUTO_CLOSE_HOURS` (12 hours), carried by the same lazy scheduler as the
+waitlist. `getReliability` aggregates the four numbers per customer. The code
+is in `src/lib/attendance.ts`.
 
-Minden levél a `src/lib/notify.ts`-ben készül, németül, egy helyen. A
-küldés **és** a napló egy hívásban történik: a szöveg a `notifications`
-gyűjteménybe is bekerül, így az adminban visszakereshető, hogy ki mit
-kapott — ez a gyakorlatban többet ér, mint utólag a postafiókot keresni,
-és a tesztek is ezt ellenőrzik.
+## Notifications
 
-| Típus | Mikor |
+Every email is composed in `src/lib/notify.ts`, in one place. Sending **and**
+logging happen in one call: the text also goes into the `notifications`
+collection, so the admin can look up who received what — in practice more
+useful than searching a sent folder afterwards, and the tests check it too.
+
+| Type | When |
 |---|---|
-| `waitlist_offer` | felszabadult hely kiajánlása, a határidővel és a foglalási linkkel |
-| `waitlist_released` | röviddel az óra előtt: a hely mindenki számára szabad |
-| `session_changed` | megváltozott az időpont, az oktató vagy a stúdió |
-| `session_cancelled` | a stúdió lemondta az órát, az okkal és a kredit sorsával |
+| `waitlist_offer` | a freed-up spot is offered, with the deadline and a booking link |
+| `waitlist_released` | shortly before the class: the spot is open to everyone |
+| `session_changed` | the time, instructor or studio changed |
+| `session_cancelled` | the studio cancelled the class, with the reason and what happens to the credit |
 
-**Ami hiányzik: a tényleges kézbesítés.** Nincs e-mail szolgáltató
-beállítva, ezért a Payload a konzolra írja a levelet, a napló pedig
-`Nur protokolliert` állapottal rögzíti. Élesítéshez egy adapter kell a
-`payload.config.ts`-be (pl. `@payloadcms/email-resend`) és
-`EMAIL_ADAPTER_READY=true` a környezetben — a hívások nem változnak.
+**What is missing: actual delivery.** No email provider is configured, so
+Payload writes the message to the console and the log records it as
+`Nur protokolliert`. Going live needs an adapter in `payload.config.ts`
+(`@payloadcms/email-resend`, say) and `EMAIL_ADAPTER_READY=true` in the
+environment — the call sites do not change.
 
-A `session_changed` nem minden mentésre megy ki: a hossz, a hinweis vagy
-egy belső mező átírása nem ér levelet, és aki lemondta, nem kap. A
-feltételek a `src/lib/session-notice.ts`-ben vannak.
+`session_changed` does not fire on every save: editing the duration, the note
+or an internal field is not worth an email, and anyone who cancelled gets
+nothing. The conditions are in `src/lib/session-notice.ts`.
 
-## Várólista (kész)
+## Waitlist
 
-Az ajánlati ablak **nem fix**, hanem annál rövidebb, minél közelebb az óra —
-különben egy felszabadult hely két órával az óra előtt 6 óráig parlagon
-állna. Alapértelmezés (az adminból állítható):
+The offer window is **not fixed**: it gets shorter the closer the class is,
+otherwise a spot freed two hours before a class would sit idle for six hours.
+The defaults (adjustable from the admin):
 
-| Mennyi idő van az óráig | Mennyi ideje van válaszolni |
+| Time until the class | Time to respond |
 |---|---|
-| 48 óránál több | 12 óra |
-| 13–48 óra | 4 óra |
-| 13 óra alatt | 20 perc |
+| more than 48 hours | 12 hours |
+| 13–48 hours | 4 hours |
+| under 13 hours | 20 minutes |
 
-A `waitlistLockHours`-on (alapból 1 óra) belül már senkinek nem ajánlunk
-egyedileg: a hely azonnal mindenki számára szabaddá válik. Egyszerre csak
-**egy** élő ajánlat van; ha lejár, a következő ember kapja meg.
+Within `waitlistLockHours` (1 hour by default) nobody gets an individual offer
+any more: the spot opens to everyone at once. There is only **one** live offer
+at a time; when it expires, the next person gets it.
 
-Kiajánlás két helyen történik: **lemondáskor azonnal** (a `/konto`
-lemondás-actionje hívja), és az **ütemezőből söpréssel** — mert nem minden
-felszabadulás megy lemondáson át: egy gép visszakerül karbantartásból, az
-admin töröl egy foglalást, vagy a kiajánlás egyszer hibára fut.
+Offering happens in two places: **immediately on cancellation** (called by the
+`/konto` cancel action), and **from the scheduler, by sweeping** — because not
+every opening goes through a cancellation: a machine comes back from
+maintenance, an admin deletes a booking, or an offer attempt fails once.
 
 ```bash
-curl -X POST http://localhost:3000/setup/waitlist-tick   # lejáratás + söprés
+curl -X POST http://localhost:3000/setup/waitlist-tick   # expire + sweep
 ```
 
-Élesben ezt egy percenkénti Vercel Cron hívja. A kód a
-`src/lib/waitlist.ts`-ben van.
+In production a Vercel Cron calls this. The code is in `src/lib/waitlist.ts`.
 
-Az ügyfél oldalán a `/buchen/[id]` lapon jelenik meg: tele óránál egy
-„Auf die Warteliste" gomb, ami **előre megmondja, mennyi ideje lenne
-reagálni**, ha most szabadulna fel hely. Aki sorra kerül, annak a lap
-tetején megjelenik az ajánlat a határidővel, és a foglalás gombja
-„Platz übernehmen"-re változik.
+On the customer's side it appears on `/buchen/[id]`: on a full class an
+"Auf die Warteliste" button that **says in advance how long they would have to
+respond** if a spot opened up now. When their turn comes, the offer appears at
+the top of the page with its deadline, and the booking button changes to
+"Platz übernehmen".
 
-## Oktatói nézet (kész)
+## Studio view
 
-`/unterricht` — az oktató a saját óráit látja, Nadine (admin) mindet.
-Jelentkezők száma óránként, jövőbeli és elmúlt órák szétválasztva.
+`/unterricht` — the calendar, with every class. Every instructor sees every
+class, not only their own: four of them teach and they cover for each other,
+and whoever steps in needs to know beforehand who is coming. The badge shows
+how full a class is (`3/5`), not how many spots are free.
 
-`/unterricht/[id]` — jelenléti lista:
+An admin also gets a form here to **create a single class**, and a delete
+button on the class's own page. Deleting is refused while there are live
+bookings — those have to be cancelled first, which refunds the credits and
+notifies everyone.
 
-- a résztvevők neve, a gépük és az állapotuk
-- elmúlt óránál **da / fehlt** gomb minden sorhoz
-- **„Lektion schliessen"**: a maradék nyitott foglalás no-show lesz
-- akinek korábban volt no-show-ja vagy késői lemondása, annál ez a neve
-  alatt jelzésként látszik
-- a várólista, az éppen futó ajánlat határidejével
-- **lemondás**: okkal, és egy külön gomb a „túl kevés jelentkező" esetre
+`/unterricht/[id]` — the register:
 
-A jogosultság minden server actionben újra ellenőrződik
-(`authorize()` az `actions.ts`-ben), nem csak a lap megjelenítésénél —
-különben kézzel írt form-adattal más órájához is hozzá lehetne szólni.
+- participants' names, their machine, their pass and the credits left on it
+- health notes, Young Member and mat-Pilates markers
+- for a past class, one **"fehlt"** button per row, which can be undone
+- the waitlist, with the deadline of any running offer
+- **cancellation**: with a reason, plus a separate button for the
+  "too few participants" case
 
-## Stúdió-oldali lemondás (kész)
+`/kunden` — the customer list and profiles: contact details, health notes,
+passes with credits, which classes they are booked into and which ones they
+attended, plus reliability figures. The list shows only *that* a health note
+exists, never its content: the full text appears on the profile and on the
+register, where the instructor is dealing with that one person.
 
-`src/lib/studio.ts`. A stúdió feltételei szerint, ha a Studio Lumen mond le, a kredit
-**mindig visszajár** — a 24 órás határtól függetlenül, mert az csak az
-ügyfél lemondására vonatkozik. Pénzvisszafizetés nincs, csak jóváírás.
+Authorisation is re-checked in every server action (`authorize()` in
+`actions.ts`), not only when rendering the page — otherwise hand-written form
+data could be used to interfere with someone else's class.
 
-Egy lemondás egyetlen tranzakcióban: minden aktív foglalás `cancelled`
-és `cancellationType = 'by_studio'`, a kredit visszaírva, az óra
-`cancelled` a `cancellationReason` mezőben az okkal (a `note`, vagyis
-Nadine saját megjegyzése, érintetlen marad), a várólista visszavonva.
-Az értesítés **a tranzakció után** megy ki, hogy ne küldjünk levelet
-olyan változásról, ami végül nem mentődött el. Újrafuttatható: a már
-lemondott órán nem ír vissza kreditet másodszor.
+## Cancellation by the studio
 
-A „túl kevés jelentkező" (minimum 2 fő) külön függvény, ami
-megtagadja a lemondást, ha a létszám mégis összejött.
+`src/lib/studio.ts`. Under the studio's terms, when Studio Lumen cancels, the
+credit **always comes back** — regardless of the 24-hour rule, which applies
+only to the customer's own cancellation. There is no refund in money, only a
+credit.
 
-## Foglalás (kész)
+One cancellation, one transaction: every active booking becomes `cancelled`
+with `cancellationType = 'by_studio'`, the credit is written back, the class
+becomes `cancelled` with the reason in `cancellationReason` (the `note`, which
+is the studio's own remark, is left untouched), and the waitlist is withdrawn.
+The notification goes out **after** the transaction, so we never send mail
+about a change that did not end up being saved. Re-runnable: it does not write
+the credit back a second time on an already cancelled class.
 
-- `/buchen` — órarend napokra bontva, stúdió szerint szűrhető
-- `/buchen/[id]` — egy óra, **teremtérképpel**: a tükör fent, alatta a gépek
-  a valós sor/oszlop elrendezésben. Szabad, foglalt és karbantartás alatti
-  gép külön jelöléssel
-- `/login` — belépés e-maillel és jelszóval
-- `/konto` — abo-k, következő órák, lemondás, előzmények
+"Too few participants" (a minimum of 2) is a separate function that refuses to
+cancel if the numbers did come together after all.
 
-A szabályok a `src/lib/booking.ts`-ben vannak:
+## Booking
 
-| Szabály | Hol |
+- `/buchen` — the schedule by day, filterable by studio
+- `/buchen/[id]` — one class, with a **floor plan**: the mirror at the top and
+  the machines below it in their real row/column layout. Free, taken and
+  under-maintenance machines are marked differently
+- `/login` — sign in with email and password
+- `/konto` — passes, upcoming classes, cancellation, history
+
+The rules are in `src/lib/booking.ts`:
+
+| Rule | Where |
 |---|---|
-| Lemondás 24 órán túl → kredit vissza | `cancelBooking` |
-| Lemondás 24 órán belül → kredit elvész, és „zu spät"-ként rögzül | `cancelBooking` |
-| Foglalt gép nem foglalható újra | `createBooking` |
-| Ugyanaz az ügyfél kétszer nem foglalhat | `createBooking` |
-| Zárva tartási időszakban nincs foglalás | `isClosed` |
-| Lejárt vagy kredit nélküli abo-val nem megy | `findUsableAbo` |
+| Cancel more than 24 hours ahead → credit returns | `cancelBooking` |
+| Cancel inside 24 hours → credit forfeited, recorded as "zu spät" | `cancelBooking` |
+| A taken machine cannot be booked again | `createBooking` |
+| The same customer cannot book twice | `createBooking` |
+| No booking during a closure period | `isClosed` |
+| An expired pass, or one with no credits, does not work | `findUsableAbo` |
 
-A lemondási határidő az adminból állítható (Buchungsregeln), nem a kódból.
+The cancellation deadline is set from the admin (Buchungsregeln), not in code.
 
-## Demó-adat felvétele és frissítése
+## Seeding and refreshing the demo data
 
-A sorrend számít, mert az egyik útvonal a másik eredményére épül. A
-`DEMO_PASSWORD` legyen ugyanaz, mint ami a `/demo` lapon ki van írva.
+The order matters, because each route builds on the previous one's result. The
+password should be the same one printed on the `/demo` page.
 
 ```bash
 BASE=http://localhost:3000
 PW='StudioLumen2026'
 J="content-type: application/json"
 
-curl -X POST $BASE/setup/seed                               # stúdiók, gépek, abo- és óratípusok
+curl -X POST $BASE/setup/seed                               # studios, machines, pass and class types
 curl -X POST $BASE/setup/teachers     -H "$J" -d "{\"password\":\"$PW\"}"
-curl -X POST $BASE/setup/sessions                           # órarend — oktató KELL hozzá, ezért a teachers után
-curl -X POST $BASE/setup/teachers     -H "$J" -d "{\"password\":\"$PW\"}"   # a már létező órák elosztása
-curl -X POST $BASE/setup/demo-zugang  -H "$J" -d "{\"password\":\"$PW\"}"   # a két demó-belépés, admin joggal
-curl -X POST $BASE/setup/demo-data    -H "$J" -d "{\"password\":\"$PW\"}"   # foglalások, telt órák, várólista
-curl -X POST $BASE/setup/demo-profilok                      # egészségügyi megjegyzés, Young Member, matten
-curl      $BASE/setup/demo-check                            # bemutatható-e az állapot
+curl -X POST $BASE/setup/sessions                           # the schedule — needs an instructor, hence after teachers
+curl -X POST $BASE/setup/teachers     -H "$J" -d "{\"password\":\"$PW\"}"   # share the classes out now that they exist
+curl -X POST $BASE/setup/demo-zugang  -H "$J" -d "{\"password\":\"$PW\"}"   # the two demo logins, with admin rights
+curl -X POST $BASE/setup/demo-data    -H "$J" -d "{\"password\":\"$PW\"}"   # bookings, full classes, waitlist
+curl -X POST $BASE/setup/demo-profilok                      # health note, Young Member, mat customer
+curl      $BASE/setup/demo-check                            # is the demo ready
 ```
 
-A `teachers` kétszer szerepel, és ez szándékos: az első hívás létrehozza az
-oktatókat (különben a `sessions` nem tud kit beírni), a második pedig
-szétosztja közöttük a már legenerált órákat, hogy a demóban német és angol
-óra is legyen.
+`teachers` appears twice on purpose: the first call creates the instructors
+(without them `sessions` has nobody to assign), and the second shares the
+already generated classes out between them, so the demo has both German and
+English classes.
 
-Mindegyik **újrafuttatható**. Az útvonalak csak `ALLOW_SEED=true` mellett
-nyílnak — élesben ez a változó ne legyen beállítva.
+All of them are **re-runnable**. The routes only open with `ALLOW_SEED=true` —
+that variable must not be set in production.
 
-Ha saját admin fiók is kell a Payload adminhoz, négy mező kötelező:
+If you also want your own admin account for the Payload admin, four fields are
+required:
 
 ```bash
 curl -X POST $BASE/setup/admin -H "$J" \
   -d '{"email":"...","password":"...","firstName":"...","lastName":"..."}'
 ```
 
-### Miért kell egyáltalán frissíteni
+### Why it needs refreshing at all
 
-A bemutató-adat **időhöz kötött**: a telt óra és a várólista mindig a
-legközelebbi órára kerül. Pár nap múlva ezek a múltba csúsznak, és a
-bemutató két legerősebb pontja megmutathatatlan lesz.
+The demo data is **tied to time**: the full class and the waitlist always land
+on the nearest classes. After a few days those slide into the past, and the two
+strongest points of the demo become impossible to show.
 
-### Az ellenőrzés hat pontja
+### The six checks
 
-| | Mit néz |
+| | What it looks at |
 |---|---|
-| 1 | nincs-e teszt-maradék (`@test.local` fiók, `TEST` óra, sorozat) |
-| 2 | az emberek listája rendezett-e |
-| 3 | van-e elég jövőbeli óra |
-| 4 | van-e **telt óra várólistával** |
-| 5 | van-e nyitott abo-megrendelés a Verwaltung oldalra |
-| 6 | tud-e foglalni a demó-ügyfél |
+| 1 | no test residue (`@test.local` accounts, `TEST` classes, series) |
+| 2 | the people list is in order |
+| 3 | there are enough future classes |
+| 4 | there is a **full class with a waitlist**, on more than one day |
+| 5 | there is an open pass order for the Verwaltung page |
+| 6 | the demo customer can book |
 
-A `/setup/demo-check` csak olvas, ezért az éles adatbázison is fut, és
-nem kell hozzá `ALLOW_SEED`.
+`/setup/demo-check` only reads, so it runs against production too, and needs no
+`ALLOW_SEED`.
 
-### Tesztelés
+## Testing
 
 ```bash
 curl -X POST http://localhost:3000/setup/test
 ```
 
-**Az éles adatbázison ez nem fut le.** A készlet teszt-ügyfeleket és
-teszt-órákat hoz létre, és 2026 októberében egy ilyen futás 95 teszt-fiókot
-és 80 teszt-órát hagyott az éles adatbázisban — a bemutatón „Kundin Nr140"
-nevű ügyfelek és „Serien Nr169" nevű oktató látszott volna. Azóta a
-`src/lib/guard.ts` megnézi, hogy a `DATABASE_URI` Postgresre mutat-e, és
-ha igen, `409`-cel elutasítja. Megkerülni csak szándékosan lehet
-(`FORCE_TEST_ON_PRODUCTION=true`), és nem érdemes.
+**This does not run against the production database.** The suite creates test
+customers and test classes, and in October 2026 one such run left 95 test
+accounts and 80 test classes in the live database — the demo would have shown
+customers called "Kundin Nr140" and an instructor called "Serien Nr169". Since
+then `src/lib/guard.ts` checks whether `DATABASE_URI` points at Postgres and,
+if so, refuses with a `409`. Getting round it takes deliberate effort
+(`FORCE_TEST_ON_PRODUCTION=true`), and is not worth it.
 
-**183 ellenőrzés** fut le, 34 témakörben. Minden eset saját adatot hoz létre,
-a futás elején és végén minden teszt-adat törlődik, így újrafuttatható és a
-sorrendtől sem függ. A teszt-készlet a `src/lib/test-suite.ts`-ben van.
+**250 assertions** run, across 34 topics. Every case creates its own data, and
+all test data is deleted at the start and end of a run, so the suite is
+re-runnable and order-independent. It lives in `src/lib/test-suite.ts`.
 
-Lefedett ágak:
+Branches covered:
 
-| Témakör | Mit ellenőriz |
+| Topic | What it checks |
 |---|---|
-| Foglalás | géppel és gép nélkül (automatikus kiosztás), kredit levonása |
-| Ütközés | ugyanaz az ügyfél kétszer; más ügyfél foglalt gépre |
-| Kapacitás | a terem pontosan megtelik, utána elutasít |
-| Abo | nulla kredit, lejárt, stornózott, egyáltalán nincs abo |
-| Több abo | a hamarabb lejáró fogy először |
-| Óra állapota | lemondott óra, múltbeli óra |
-| Gép | másik stúdió gépe, karbantartás alatti gép, kapacitás csökkenése |
-| Zárva tartás | más óratípus, más stúdió, saját óratípus, korlátozás nélküli |
-| Lemondás | 24 órán túl és belül, kétszeri lemondás, idegen foglalás |
-| Újrafoglalás | lemondás után a gép ismét szabad |
-| Hibás adat | nem létező óra- és foglalásazonosító |
-| Várólista-ablak | a négy lépcső, és hogy az ablak valóban rövidül |
-| Várólista | csak tele óránál; sorrend; dupla feliratkozás; kilépés; idegen eintrag |
-| Kiajánlás | az elsőnek megy; egyszerre csak egy; csak ő váltja be; lejárat után nem |
-| Lejárat | a következő emberre száll át; a lock-ablakon belül mindenki foglalhat |
-| Jelenlét | késői vs. időbeni lemondás elkülönítése; óra lezárása; javítás; statisztika |
-| Sorozat | generálás, duplikálás-mentesség, helyes hétköznap és napszak |
-| Nyári időszámítás | 09:00 márciusban váltás előtt és után is 09:00 marad |
-| Sorozat-szerkesztés | „csak ez" leszakít; „ez és a jövőbeliek" átvisz; a korábbiak érintetlenek |
-| Foglalás-követés | sorozat-módosítás után a foglalás aktív marad és követi az időpontot |
-| Söprés | a lemondáson kívül felszabadult hely is kiajánlódik, de nem kétszer |
-| Levelek | ajánlat, felszabadítás, időpont- és oktatóváltás, lemondás szövege |
-| Nem-értesítés | hossz-változás és a lemondott foglalók nem kapnak levelet |
-| Stúdió-lemondás | kredit mindig vissza, stornoart, ok a saját mezőbe, hinweis érintetlen |
-| Minimum létszám | elég jelentkezőnél megtagadja, kevésnél lemond és értesít |
+| Booking | with and without a chosen machine (automatic assignment), credit deduction |
+| Clashes | the same customer twice; another customer on a taken machine |
+| Capacity | the room fills up exactly, then rejects |
+| Passes | zero credits, expired, cancelled, no pass at all |
+| Several passes | the one expiring soonest is used first |
+| Class status | cancelled class, past class |
+| Machines | another studio's machine, a machine in maintenance, reduced capacity |
+| Closures | other class type, other studio, own class type, unrestricted |
+| Cancellation | outside and inside 24 hours, cancelling twice, someone else's booking |
+| Rebooking | after a cancellation the machine is free again |
+| Bad input | non-existent class and booking ids |
+| Waitlist window | all four steps, and that the window really does shorten |
+| Waitlist | only on a full class; ordering; joining twice; leaving; someone else's entry |
+| Offering | goes to the first in line; only one at a time; only they can claim it; not after expiry |
+| Expiry | passes to the next person; inside the lock window everyone may book |
+| Attendance | late vs. in-time cancellation; closing a class; correcting it; statistics |
+| Series | generation, no duplication, correct weekday and time of day |
+| Daylight saving | 09:00 stays 09:00 both before and after the March change |
+| Series editing | "this one" detaches; "this and future" propagates; earlier ones untouched |
+| Booking follow-through | after a series change the booking stays active and follows the time |
+| Sweeping | a spot freed outside a cancellation is offered too, but not twice |
+| Emails | offer, release, time and instructor change, cancellation wording |
+| Non-notification | a duration change and cancelled participants get no email |
+| Studio cancellation | credit always returns, cancellation type, reason in its own field, note untouched |
+| Minimum numbers | refuses when there are enough participants, cancels and notifies when there are not |
 
-Minden elutasított esetnél azt is ellenőrzi, hogy **a kredit nem vonódott le**.
+Every rejected case also checks that **the credit was not deducted**.
 
-Teszt-adatok jelölése: `@test.local` e-mail és `note = 'TEST'` az órákon.
-A takarítás csak ezeket törli, az éles adatokhoz nem nyúl.
+Test data is marked by an `@test.local` email and `note = 'TEST'` on classes.
+Clean-up deletes only those and never touches real data.
 
-## Ami még nincs kész
+## Ordering a pass without a payment provider
 
-1. **E-mail kézbesítés** — egy adapter (Resend vagy SMTP) a
-   `payload.config.ts`-be. A levelek szövege és a kiküldés logikája kész,
-   csak a postára adás hiányzik.
-2. **Abo-vásárlás és Stripe** (kártya + TWINT), Nadine adataival
-3. **Belépés e-mail linkkel** (most csak jelszó)
-4. **A meglévő weboldal tartalma** Payloadba, hogy Nadine szerkeszthesse
-5. **Vercel Cron** a `/setup/waitlist-tick`-hez (most kézzel kell hívni), és
-   egy napi job, ami a lement órákat automatikusan lezárja
+The modelled payment is **cash on site or bank transfer** (QR invoice, 10
+days). So ordering is not paying:
 
-## Ismert környezeti korlátok
+1. the customer orders on `/abos` and picks a payment method
+2. the pass goes to `pending` — **it cannot be used to book**, because
+   `findUsableAbo` only considers `active` passes
+3. they receive a confirmation email with the payment instructions (the text
+   is in the Buchungsregeln setting, without bank details — the studio fills
+   those in)
+4. once the money arrives, the studio releases it with one button on
+   `/verwaltung`, and the customer is notified
 
-- A `payload` CLI (`generate:types`, `generate:importmap`) **nem fut Node 24
-  alatt** egy undici-ütközés miatt. Ha kell, Node 20 vagy 22 alatt futtasd.
-  A fejlesztéshez nincs rá szükség, az admin enélkül is működik.
-- A Payload SQLite-adaptere fejlesztéskor **interaktívan** kérdez rá a
-  séma-változásokra (átnevezés vagy új oszlop), és a kérdés nem jelenik meg,
-  ha a szerver nem terminálban fut. Ha egy mezőt átnevezel, a boot elakad.
-  Kerülő út: a régi mezőt ne töröld, hanem hagyd `admin: { hidden: true }`
-  jelöléssel (így tett a `waitlistOfferHours`), vagy add hozzá az oszlopot
-  kézzel az `sqlite3 studio-lumen.db` eszközzel, és indítsd újra.
-- Az npm itt blokkolja a csomagok telepítő szkriptjeit. A `sharp` és az
-  `esbuild` előre fordított binárissal jön, ezért így is működnek.
+**Validity runs from the release**, not from the order, so waiting does not eat
+into the pass.
 
-## Abo-megrendelés fizetési szolgáltató nélkül (kész)
+The reduced tier (Young Member 16–24, mat-Pilates students) is only shown to
+someone who qualifies, and the order checks it server-side as well — so nothing
+has to be turned down afterwards. The voucher pass can only be ordered with a
+voucher.
 
-A modellezett fizetés **helyszíni készpénz vagy banki átutalás**
-(QR-számla, 10 nap). A megrendelés ezért nem fizetés:
+When Stripe is added, it only opens a third route to activation
+(`paymentMethod: 'online'`, immediate `confirmPayment`); the model stays.
 
-1. az ügyfél a `/abos` lapon rendel, és megadja a fizetés módját
-2. az abo `pending` állapotba kerül — **ezzel nem lehet foglalni**, mert a
-   `findUsableAbo` csak `active` abo-t vesz figyelembe
-3. visszaigazoló levelet kap a fizetési útmutatóval (a szövege a
-   Buchungsregeln beállításban van, bankadat nélkül — azt Nadine írja be)
-4. a pénz beérkezése után Nadine a `/verwaltung` lapon egy gombbal
-   felszabadítja, és az ügyfél értesítést kap
+## What is not built
 
-Az **érvényesség a felszabadítástól** számít, nem a megrendeléstől, hogy a
-várakozás ne fogyassza az abo-t.
+1. **Email delivery** — an adapter (Resend or SMTP) in `payload.config.ts`.
+   The wording and the sending logic are done; only posting them is missing.
+2. **Card payment and Stripe**
+3. **Sign-in by email link** (currently password only)
+4. **The website's text in Payload**, so the studio could edit it
+5. **A per-minute Vercel Cron** for the waitlist (see below for why the lazy
+   scheduler carries it today)
 
-A kedvezményes tarifa (Young Member 16–24, matten-résztvevők) csak annak
-jelenik meg, aki jogosult rá, és a megrendelés szerverоldalon is ellenőrzi —
-így nem kell utólag visszautasítani. Az utalványos abo csak utalvánnyal
-rendelhető.
+## Known environment limits
 
-Amikor a Stripe bekerül, csak egy harmadik út nyílik az aktiváláshoz
-(`paymentMethod: 'online'`, azonnali `confirmPayment`); a modell marad.
+- The `payload` CLI (`generate:types`, `generate:importmap`) **does not run
+  under Node 24** because of an undici conflict. Use Node 20 or 22 if you need
+  it. Development does not require it, and the admin works without it.
+- Payload's SQLite adapter asks about schema changes (a rename or a new
+  column) **interactively**, and the question never appears if the server is
+  not running in a terminal. Rename a field and the boot hangs. Workaround: do
+  not delete the old field, leave it with `admin: { hidden: true }` (as
+  `waitlistOfferHours` is), or add the column by hand with
+  `sqlite3 studio-lumen.db` and restart.
+- npm may block packages' install scripts here. `sharp` and `esbuild` ship
+  prebuilt binaries, so they work regardless.
 
-## Deploy Vercelre
+## Deploying to Vercel
 
-Amire szükség van: egy **GitHub** fiók (a kód odakerül), egy **Vercel**
-fiók, és egy **Postgres** adatbázis — a [Neon](https://neon.tech) ingyenes
-csomagja erre elég.
+What you need: a **GitHub** account (the code goes there), a **Vercel**
+account, and a **Postgres** database — [Neon](https://neon.tech)'s free plan is
+enough.
 
 ```bash
-# 1. a kód GitHubra
-git add -A && git commit -m "Weboldal és foglalórendszer"
-git remote add origin git@github.com:<felhasznalo>/studio-lumen.git
+# 1. the code to GitHub
+git add -A && git commit -m "Website and booking system"
+git remote add origin git@github.com:<user>/studio-lumen.git
 git push -u origin main
 ```
 
-2. A Neonban új projekt → másold ki a kapcsolati sztringet
+2. In Neon, create a project and copy the connection string
    (`postgresql://…?sslmode=require`).
 
-3. A Vercelen *Add New → Project* → válaszd ki a repót. Környezeti
-   változók (Settings → Environment Variables):
+3. On Vercel, *Add New → Project* and pick the repository. Environment
+   variables (Settings → Environment Variables):
 
-| Változó | Érték |
+| Variable | Value |
 |---|---|
-| `DATABASE_URI` | a Neon kapcsolati sztringje |
+| `DATABASE_URI` | the Neon connection string |
 | `PAYLOAD_SECRET` | `openssl rand -base64 32` |
-| `SITE_URL` | a Vercel címe, pl. `https://studio-lumen-demo.vercel.app` |
+| `SITE_URL` | the Vercel address, e.g. `https://studio-lumen-demo.vercel.app` |
 | `CRON_SECRET` | `openssl rand -hex 24` |
-| `ALLOW_SEED` | `true` **csak az első feltöltéshez**, utána törölni |
+| `ALLOW_SEED` | `true` **for the first seeding only**, then delete it |
 
-4. Az első deploy után az alapadatok felvétele:
+4. After the first deploy, seed the data with the sequence under
+   "Seeding and refreshing the demo data" above, pointed at the live address.
 
-```bash
-curl -X POST https://<cím>/setup/seed
-curl -X POST https://<cím>/setup/admin -H 'content-type: application/json' \
-  -d '{"email":"...","password":"...","firstName":"...","lastName":"..."}'
-curl -X POST https://<cím>/setup/sessions
-```
+5. **Delete the `ALLOW_SEED` variable** and trigger another deploy. That closes
+   the `/setup/*` routes.
 
-5. **Töröld az `ALLOW_SEED` változót** és indíts újra egy deployt. Ezzel a
-   `/setup/*` útvonalak bezárulnak.
+### Scheduling for the waitlist
 
-### Ütemezés a várólistához
+On Vercel's **free plan a cron job may run only once a day**, and a per-minute
+schedule is rejected at deploy time. A waitlist offer, however, expires in
+minutes, so the real beat comes from `maybeTick()`: whoever opens the schedule
+also turns the crank, at most once a minute. The time of the last run lives in
+the Buchungsregeln global rather than in memory, because serverless instances
+do not share memory. The same tick also closes classes that finished long ago.
 
-A Vercel **ingyenes csomagján a cron naponta csak egyszer futhat**, és egy
-percenkénti ütemezés már a deploynál elbukik. Egy várólista-ajánlat viszont
-percekben jár le, ezért a tényleges taktust a `maybeTick()` adja: aki
-megnyitja az órarendet, az egyben le is pörgeti a kört, de legfeljebb
-percenként egyszer. Az utolsó futás ideje a Buchungsregeln globalban van,
-nem memóriában, mert a szerverless példányok nem osztoznak a memórián.
+Alongside it, `vercel.json` has a **daily** cron (`/api/cron/waitlist`, guarded
+by `CRON_SECRET`) as a safety net for when nobody visits the site. On a paid
+plan it can be switched to per-minute, and then the lazy round becomes the
+backup.
 
-A `vercel.json`-ban emellett van egy **napi** cron (`/api/cron/waitlist`,
-`CRON_SECRET`-tel védve) biztonsági hálónak arra az esetre, ha senki nem jár
-az oldalon. Fizetős csomagon ez átállítható percenkéntire, és akkor a lusta
-kör már csak tartalék.
+**You cannot put comments in `vercel.json`**: JSON has no comments, and Vercel
+rejects fields its schema does not recognise (`INVALID_VERCEL_CONFIG`), so the
+deploy fails in the first second. Hence the explanation lives here, not in the
+file.
 
-A `vercel.json`-ba **nem lehet megjegyzést írni**: a JSON nem ismer
-kommentet, és a Vercel elutasítja a séma által nem ismert mezőket
-(`INVALID_VERCEL_CONFIG`), így a deploy már az első másodpercben elbukik.
-A magyarázat ezért itt van, nem a fájlban.
+### What the demo deliberately does not have
 
-### Ami a demóban szándékosan nincs
-
-- **Nincs online fizetés.** Az abo-megrendelés helyszíni vagy átutalásos
-  fizetést modellez.
-- **A levelek nem mennek el.** Nincs e-mail szolgáltató beállítva, a
-  Payload a konzolra ír, a `notifications` napló pedig „Nur protokolliert"
-  állapottal rögzíti a szöveget. Az adminban minden levél visszaolvasható.
-- **Az oldal tartalma még a kódban van**, nem Payloadban — Nadine az
-  órarendet, az abo-kat és a személyeket tudja szerkeszteni, a marketing
-  szövegeket még nem.
+- **No online payment.** Ordering a pass models paying on site or by transfer.
+- **Emails are not sent.** No email provider is configured; Payload writes to
+  the console and the `notifications` log records the text with the status
+  "Nur protokolliert". Every message can be read back in the admin.
+- **The site's text still lives in code**, not in Payload — the studio can edit
+  the schedule, the passes and the people, but not the marketing copy yet.

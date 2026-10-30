@@ -3,7 +3,7 @@ import config from '@payload-config'
 import { generateSessions } from '@/lib/series'
 
 /**
- * Egy meglévő sorozat óráinak legenerálása:
+ * Generates the classes of an existing series:
  *
  *   curl -X POST "http://localhost:3000/setup/series?id=1"
  */

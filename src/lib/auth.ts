@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 
-/** A bejelentkezett felhasználó a Payload süti alapján, vagy null. */
+/** The signed-in user, from the Payload cookie, or null. */
 export const getCurrentUser = async () => {
   const payload = await getPayload({ config })
   const h = await headers()

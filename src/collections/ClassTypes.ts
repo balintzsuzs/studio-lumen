@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
 
-/** Óratípus: Reformer Flow, Matten Gruppe, Pilates Care stb. */
+/** Class type: Reformer Flow, Matten Gruppe, Pilates Care and so on. */
 export const ClassTypes: CollectionConfig = {
   slug: 'class-types',
   labels: { singular: 'Kursart', plural: 'Kursarten' },

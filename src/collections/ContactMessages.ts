@@ -1,11 +1,11 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * A weboldal kapcsolati űrlapjának bejövő üzenetei.
+ * Incoming messages from the website's contact form.
  *
- * A statikus oldalon ez egy `mailto:` link volt, mert nem volt backend.
- * Most van: az üzenet itt landol, Nadine az adminban látja, és nem
- * veszik el, ha a levél spamba kerül.
+ * On the static site this was a `mailto:` link, because there was no
+ * backend. Now there is: the message lands here, the studio sees it in
+ * the admin, and nothing is lost if an email goes to spam.
  */
 export const ContactMessages: CollectionConfig = {
   slug: 'contact-messages',
@@ -17,7 +17,7 @@ export const ContactMessages: CollectionConfig = {
     description: 'Was über das Kontaktformular der Website hereinkommt.',
   },
   access: {
-    // Bárki küldhet, csak a stúdió olvassa.
+    // Anyone may send; only the studio reads.
     create: () => true,
     read: ({ req: { user } }) => user?.role === 'admin' || user?.role === 'instructor',
     update: ({ req: { user } }) => user?.role === 'admin',

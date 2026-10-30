@@ -2,20 +2,21 @@ import 'server-only'
 import { cookies } from 'next/headers'
 
 /**
- * A látogató nyelve.
+ * The visitor's language.
  *
- * Három forrásból jöhet, ebben a sorrendben:
+ * It can come from three sources, in this order:
  *
- *  1. a `lang` süti — ezt vagy a foglalórendszer nyelvváltója írja,
- *     vagy a middleware, amikor valaki a `/en` marketing oldalra lép;
- *  2. a bejelentkezett felhasználó `users.language` mezője — így egy
- *     új gépen is azon a nyelven indul, amit korábban választott;
- *  3. végül a német, mert a stúdió alapnyelve az.
+ *  1. the `lang` cookie — written either by the booking system's
+ *     language switch, or by the middleware when someone lands on the
+ *     `/en` marketing page;
+ *  2. the signed-in user's `users.language` field — so that on a new
+ *     machine they start in the language they picked before;
+ *  3. German, because that is the studio's default language.
  *
- * A marketing oldalnak két valódi útvonala van (`/` és `/en`), mert azt
- * a keresőknek is látniuk kell. A foglalórendszer ezzel szemben egyetlen
- * útvonalon fut, és a nyelvet a süti dönti el: ott a lapok mögött
- * bejelentkezés és adatbázis van, azt fölösleges megduplázni.
+ * The marketing site has two real routes (`/` and `/en`), because
+ * search engines need to see them. The booking system, by contrast,
+ * runs on a single route and lets the cookie decide: behind those
+ * pages sit a login and a database, and duplicating that is pointless.
  */
 export type Lang = 'de' | 'en'
 
@@ -23,7 +24,7 @@ export const NYELVEK: readonly Lang[] = ['de', 'en'] as const
 
 export const isLang = (v: unknown): v is Lang => v === 'de' || v === 'en'
 
-/** A süti élettartama: egy év, hogy ne kelljen minden látogatáskor újra választani. */
+/** Cookie lifetime: one year, so nobody has to choose again on every visit. */
 export const LANG_SUTI = {
   nev: 'lang',
   beallitas: {
@@ -34,8 +35,9 @@ export const LANG_SUTI = {
 }
 
 /**
- * A bejelentkezett felhasználó, ahogy a `getCurrentUser()` adja.
- * A Payload típusa itt tág, ezért a `language` mezőt óvatosan olvassuk.
+ * The signed-in user, as `getCurrentUser()` returns it.
+ * Payload's type is wide here, so the `language` field is read
+ * defensively.
  */
 type NyelvesFelhasznalo = Record<string, unknown> | null | undefined
 
@@ -50,5 +52,5 @@ export async function getLang(user?: NyelvesFelhasznalo): Promise<Lang> {
   return 'de'
 }
 
-/** A másik nyelv — a nyelvváltó ide visz. */
+/** The other language — where the switch leads. */
 export const masikNyelv = (lang: Lang): Lang => (lang === 'de' ? 'en' : 'de')

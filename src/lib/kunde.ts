@@ -4,44 +4,44 @@ import { getReliability, type Reliability } from './attendance'
 import { isYoungMember } from './abo'
 
 /**
- * Egy vendég teljes képe a stúdió oldaláról.
+ * The full picture of one customer, from the studio's side.
  *
- * Az óra oldala azt mondja meg, kik jönnek MA; ez azt, hogy ki ez az
- * ember: hogyan érhető el, mit kell tudni róla óra előtt, mely órákon
- * volt, és melyekre jön. Ugyanazt a kérdést eddig csak az admin
- * felületen (/admin) lehetett megválaszolni, több kattintással és a
- * foglalásokat kézzel összevadászva.
+ * The class page tells you who is coming TODAY; this tells you who this
+ * person is: how to reach them, what to know before the class, which
+ * classes they attended and which ones they are booked into. Until now
+ * that question could only be answered in the Payload admin, with
+ * several clicks and by hunting down the bookings by hand.
  *
- * Egyetlen lekérdezés hozza a foglalásokat, és itt válik múltra és
- * jövőre — nem két kérdés, mert a határ („most”) egy pillanat, és ha
- * kétszer kérdeznénk, a kettő között elcsúszhatna.
+ * A single query fetches the bookings, and they are split into past and
+ * future here — not two queries, because the boundary ("now") is a
+ * single moment, and asking twice could let it drift in between.
  */
 
 export type KundeOra = {
   bookingId: number
   sessionId: number
-  /** Kezdés, ISO. */
+  /** Start time, ISO. */
   kezdet: string
   cim: string
   oktato?: string
   studio?: string
   gep?: string
-  /** A foglalás állapota, nyers értékként — a szöveget a lap adja. */
+  /** Booking status, as the raw value — the page supplies the wording. */
   allapot: string
-  /** Lemondásnál: időben, késve, vagy a stúdió mondta le. */
+  /** For a cancellation: in time, late, or cancelled by the studio. */
   lemondasTipus?: string
 }
 
 export type KundeProfil = {
   kunde: any
-  /** Young Member a születési évből, nem külön kapcsolóból. */
+  /** Young Member derived from the birth year, not from a separate flag. */
   youngMember: boolean
   abok: any[]
-  /** Hány kredit van összesen az élő abókon. */
+  /** Total credits across the active passes. */
   kreditOsszesen: number
-  /** A legközelebbi óra elöl. */
+  /** Soonest class first. */
   jovobeli: KundeOra[]
-  /** A legutóbbi óra elöl. */
+  /** Most recent class first. */
   korabbi: KundeOra[]
   megbizhatosag: Reliability
 }
@@ -51,8 +51,8 @@ const idOf = (v: unknown): number =>
 
 const oraSor = (b: any): KundeOra | null => {
   const s = b.session
-  // Ha a kapcsolat nem jött vissza objektumként, nincs mit mutatni —
-  // egy puszta azonosító sem időpontot, sem nevet nem ad.
+  // If the relation did not come back as an object there is nothing to
+  // show — a bare id gives neither a time nor a name.
   if (!s || typeof s !== 'object') return null
   return {
     bookingId: b.id,
@@ -67,7 +67,7 @@ const oraSor = (b: any): KundeOra | null => {
   }
 }
 
-/** Egy vendég profilja. `null`, ha nincs ilyen ember. */
+/** One customer's profile. `null` if there is no such person. */
 export const kundeProfil = async (
   payload: Payload,
   kundeId: number,
@@ -87,9 +87,10 @@ export const kundeProfil = async (
   })
 
   /*
-   * depth 2, mert az óra NEVE, oktatója és stúdiója is kell: a foglaláson
-   * az óra kapcsolat, azon belül a típus egy újabb kapcsolat. Egy szinten
-   * csak azonosítók jönnének, és a lista dátumokat mutatna cím nélkül.
+   * depth 2, because we need the class NAME, its instructor and its
+   * studio: on the booking the class is a relation, and inside it the
+   * type is another one. At one level we would get only ids, and the
+   * list would show dates with no titles.
    */
   const foglalasok = await payload.find({
     collection: 'bookings',
@@ -103,8 +104,8 @@ export const kundeProfil = async (
   for (const b of foglalasok.docs as any[]) {
     const sor = oraSor(b)
     if (!sor) continue
-    // A lemondott foglalás nem jövőbeli részvétel: az ember nem jön.
-    // A múltban viszont megmarad, mert a történethez hozzátartozik.
+    // A cancelled booking is not future attendance: the person is not
+    // coming. In the past it stays, because it is part of the record.
     const jovo = new Date(sor.kezdet).getTime() > most
     if (jovo && sor.allapot === 'cancelled') continue
     ;(jovo ? jovobeli : korabbi).push(sor)
@@ -130,20 +131,20 @@ export type KundeSor = {
   nev: string
   email: string
   telefon?: string
-  /** Van-e egészségügyi megjegyzés — a tartalma a listában nem jelenik meg. */
+  /** Whether a health note exists — its content is not shown in the list. */
   egeszseg: boolean
   youngMember: boolean
   mattenKunde: boolean
 }
 
 /**
- * A vendégek listája, névre és e-mailre kereshetően.
+ * The customer list, searchable by name and email.
  *
- * Az egészségügyi megjegyzésnek itt csak a LÉTE látszik, a tartalma nem.
- * Érzékeny adat, a lista pedig sok embert mutat egyszerre, és senkinek
- * nincs rá szüksége addig, amíg nem egy konkrét emberre néz. A teljes
- * szöveg a profilon és az óra jelenléti listáján van, ahol az oktató
- * épp azzal az egy emberrel foglalkozik.
+ * Only the EXISTENCE of a health note shows here, never its content.
+ * It is sensitive data, the list shows many people at once, and nobody
+ * needs to read it until they are looking at one specific person. The
+ * full text lives on the profile and on the class register, where the
+ * instructor is dealing with that one person.
  */
 export const kundeLista = async (
   payload: Payload,

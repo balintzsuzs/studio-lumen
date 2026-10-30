@@ -1,12 +1,13 @@
-# Képek — generálási promptok
+# Images — generation prompts
 
-A `public/bilder/` mappában most **feliratozott placeholderek** vannak. Mindegyik
-megmondja, mi a helye és milyen méret kell. Ahogy elkészül egy kép, írd felül
-ugyanazon a néven — a kódban semmit nem kell átírni.
+`public/bilder/` currently holds **labelled placeholders**. Each one states
+where it belongs and what size is needed. As an image is finished, overwrite
+the placeholder under the same name — nothing in the code has to change.
 
-## Közös stílusjegy
+## Shared style anchor
 
-Minden prompt végére ugyanez kerül, hogy a 22 kép egy stúdiónak látszódjon:
+The same block goes at the end of every prompt, so that all 22 images read as
+one studio:
 
 ```
 boutique reformer pilates studio, Swiss, warm minimal interior, pale oak floor,
@@ -16,163 +17,164 @@ photography, natural colour grading, 35mm, shallow depth of field
 --style raw --v 7
 ```
 
-Rövidítve lentebb: **[STÍLUS]**.
+Abbreviated below as **[STYLE]**.
 
-Két szabály, amit érdemes betartani:
+Two rules worth keeping:
 
-- **Ne használj `--cref`-et vagy `--sref`-et valódi fotóval.** Ha egy valódi
-  stúdió vagy egy valódi ember képe a referencia, a generált kép is rá fog
-  hasonlítani — pont azt veszítenénk el, amiért az egész anonimizálás készült.
-- **Az arcok ne hasonlítsanak senkire.** Ha egy portré felismerhetően valakire
-  emlékeztet, generáld újra. Négy arc kell összesen, nem kell hozzá hasonmás.
+- **Do not use `--cref` or `--sref` with a real photo.** If a real studio or a
+  real person is the reference, the generated image will resemble them — which
+  loses exactly what this whole anonymisation was for.
+- **No face should resemble anyone.** If a portrait recognisably reminds you of
+  someone, generate it again. Four faces are needed in total; none of them has
+  to be a likeness.
 
 ## Hero, 1600 × 1000 (16:10)
 
-**`hero-reformer.jpg`** — a nyitólap fő képe
+**`hero-reformer.jpg`** — the home page's main image
 ```
 wide interior shot of a small pilates studio, four reformer machines in a row
 facing a mirrored wall, no people, early morning light raking across the floor,
-[STÍLUS] --ar 16:10
+[STYLE] --ar 16:10
 ```
 
-**`hero-studio.jpg`** — matten pilates szekció
+**`hero-studio.jpg`** — the mat Pilates section
 ```
 pilates studio floor with rolled mats, small props basket, wooden bench along the
-wall, no people, quiet and bright, [STÍLUS] --ar 16:10
+wall, no people, quiet and bright, [STYLE] --ar 16:10
 ```
 
-## Portré, 800 × 1000 (4:5)
+## Portrait, 800 × 1000 (4:5)
 
-**`owner-portrait-4x5.jpg`** — a tulajdonos
+**`owner-portrait-4x5.jpg`** — the owner
 ```
 portrait of a woman in her early forties, studio owner, calm confident
 expression, light knit top, standing beside a reformer, soft window light from
-the left, looking at camera, [STÍLUS] --ar 4:5
+the left, looking at camera, [STYLE] --ar 4:5
 ```
 
-## Csapat, 800 × 800 (1:1)
+## Team, 800 × 800 (1:1)
 
 **`team-aline.jpg`**
 ```
 portrait of a woman in her late twenties, pilates instructor, warm friendly
-expression, neutral activewear, blurred studio behind her, [STÍLUS] --ar 1:1
+expression, neutral activewear, blurred studio behind her, [STYLE] --ar 1:1
 ```
 
 **`team-jana.jpg`**
 ```
 portrait of a woman in her mid thirties, pilates instructor, thoughtful calm
-expression, neutral activewear, blurred studio behind her, [STÍLUS] --ar 1:1
+expression, neutral activewear, blurred studio behind her, [STYLE] --ar 1:1
 ```
 
 **`team-elin.jpg`**
 ```
 portrait of a woman in her early thirties, pilates instructor, open friendly
-expression, neutral activewear, blurred studio behind her, [STÍLUS] --ar 1:1
+expression, neutral activewear, blurred studio behind her, [STYLE] --ar 1:1
 ```
 
-## Reformer-képek, 1200 × 900 (4:3)
+## Reformer images, 1200 × 900 (4:3)
 
-**`reformer-wall.jpg`** — a zürichi terem
+**`reformer-wall.jpg`** — the Zürich room
 ```
 three reformer machines side by side in a bright studio, mirrored wall, nobody
-in frame, [STÍLUS] --ar 4:3
+in frame, [STYLE] --ar 4:3
 ```
 
 **`reformer-weit.jpg`**
 ```
 wide view of a reformer studio room from the corner, six machines in three rows,
-tall window at the far end, [STÍLUS] --ar 4:3
+tall window at the far end, [STYLE] --ar 4:3
 ```
 
 **`reformer-mann.jpg`**
 ```
 a man in his thirties lying on a reformer, footwork position, seen from the side,
-focused expression, instructor out of frame, [STÍLUS] --ar 4:3
+focused expression, instructor out of frame, [STYLE] --ar 4:3
 ```
 
 **`reformer-frau3.jpg`**
 ```
 a woman on a reformer, long spine stretch, side view, controlled movement,
-[STÍLUS] --ar 4:3
+[STYLE] --ar 4:3
 ```
 
 **`reformer-step.jpg`**
 ```
 close view of feet and the reformer footbar, straps and springs visible, hands
-resting on the carriage, [STÍLUS] --ar 4:3
+resting on the carriage, [STYLE] --ar 4:3
 ```
 
 **`reformer-ring.jpg`**
 ```
 hands holding a pilates ring above the chest while lying on a reformer, soft
-focus on the ring, [STÍLUS] --ar 4:3
+focus on the ring, [STYLE] --ar 4:3
 ```
 
 **`reformer-plank.jpg`**
 ```
 a woman in a plank position on a reformer carriage, arms straight, side view,
-[STÍLUS] --ar 4:3
+[STYLE] --ar 4:3
 ```
 
 **`reformer-seance.jpg`**
 ```
 small group of four people on reformers in a studio class, instructor walking
-between the machines, seen from behind, [STÍLUS] --ar 4:3
+between the machines, seen from behind, [STYLE] --ar 4:3
 ```
 
-**`pilates-wand.jpg`** — matten pilates
+**`pilates-wand.jpg`** — mat Pilates
 ```
 two people on mats doing pilates on a studio floor, instructor kneeling beside
-one of them correcting the position, [STÍLUS] --ar 4:3
+one of them correcting the position, [STYLE] --ar 4:3
 ```
 
-## A zugi stúdió, 1200 × 900 (4:3)
+## The Zug studio, 1200 × 900 (4:3)
 
-Ezek egy **másik, kisebb teremről** szólnak — más fal, más fény, hogy a két
-helyszín ne ugyanaz legyen.
+These are about a **different, smaller room** — a different wall, different
+light, so the two locations do not look like the same place.
 
 **`zug-wand.jpg`**
 ```
 small pilates studio room with two reformers, warm grey wall, single large
-window, no people, [STÍLUS] --ar 4:3
+window, no people, [STYLE] --ar 4:3
 ```
 
 **`zug-raum.jpg`**
 ```
 pilates studio room seen from the doorway, four reformers in two rows, wooden
-ceiling beams, [STÍLUS] --ar 4:3
+ceiling beams, [STYLE] --ar 4:3
 ```
 
 **`zug-fenster.jpg`**
 ```
 tall studio window with linen curtain half drawn, reformer in the foreground out
-of focus, [STÍLUS] --ar 4:3
+of focus, [STYLE] --ar 4:3
 ```
 
 **`zug-ringe.jpg`**
 ```
 pilates props on a wooden shelf, rings, small balls, resistance bands, neatly
-arranged, [STÍLUS] --ar 4:3
+arranged, [STYLE] --ar 4:3
 ```
 
 **`zug-symmetrie.jpg`**
 ```
 symmetrical view down the centre of a studio room, a reformer on each side,
-window centred at the far end, no people, [STÍLUS] --ar 4:3
+window centred at the far end, no people, [STYLE] --ar 4:3
 ```
 
-## Egyéb
+## Other
 
-**`see-sunset.jpg`** — autogenes Training szekció, 1200 × 900
+**`see-sunset.jpg`** — the autogenic training section, 1200 × 900
 ```
 calm Swiss lake at dusk, still water, low mountains in the distance, no people,
-muted palette, [STÍLUS] --ar 4:3
+muted palette, [STYLE] --ar 4:3
 ```
 
-**`logo.png`** — 240 × 240, átlátszó háttér
+**`logo.png`** — 240 × 240, transparent background
 
-Most egy egyszerű „L" betű van körben, placeholderként. Ha logót szeretnél,
-ezt vektorban érdemes megcsinálni (Figma, Illustrator), nem generálni — egy
-generált logó szinte mindig elmosódott szélű és nem skálázódik. A fejlécben a
-„STUDIO LUMEN" szöveg mellett áll, tehát elég egy jel, nem kell szöveget
-tartalmaznia.
+Right now it is a plain "L" in a circle, as a placeholder. If you want a real
+logo, make it in vector (Figma, Illustrator) rather than generating it — a
+generated logo almost always has soft edges and does not scale. It sits beside
+the words "STUDIO LUMEN" in the header, so a mark is enough; it does not need
+to contain any text.

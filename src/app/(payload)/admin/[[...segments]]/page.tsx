@@ -9,10 +9,10 @@ type Args = {
 }
 
 /**
- * A Payload nézetei `undefined` nélküli keresőparamétert várnak, a Next 16
- * viszont `undefined`-ot is megenged. Az érték ugyanaz, csak a típus
- * szigorúbb — ezért egy helyen szűkítjük, a két admin-oldal között
- * megosztva, és nem minden hívásnál külön.
+ * Payload's views expect search params without `undefined`, while Next
+ * 16 allows `undefined` too. The value is the same, only the type is
+ * stricter — so we narrow it in one place, shared between the two
+ * admin pages, rather than at every call site.
  */
 type PayloadSearchParams = Promise<{ [key: string]: string | string[] }>
 const narrow = (sp: Args['searchParams']) => sp as PayloadSearchParams

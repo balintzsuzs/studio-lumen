@@ -3,10 +3,10 @@
 import { useEffect } from 'react'
 
 /**
- * Az Angebot fülei. A statikus oldalon ezt egy `<script>` kapcsolta;
- * a jelölés ugyanaz maradt (`#angebotTabs .tab` és `.panel`), hogy a
- * `site.css` változtatás nélkül működjön. Ezért nem React state-tel
- * vezéreljük, hanem ugyanazt az osztály-kapcsolást végezzük el.
+ * The Angebot tabs. On the static site a `<script>` switched these; the
+ * markup stayed the same (`#angebotTabs .tab` and `.panel`) so
+ * `site.css` works unchanged. Hence they are not driven by React state
+ * but by performing the same class toggling.
  */
 export default function AngebotTabs() {
   useEffect(() => {

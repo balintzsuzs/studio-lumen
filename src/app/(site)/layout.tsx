@@ -2,14 +2,13 @@ import type { Metadata } from 'next'
 import '../site.css'
 
 /**
- * A marketing oldal saját gyökér-layoutja.
+ * The marketing site's own root layout.
  *
- * Külön route group és külön stíluslap, mert a `site.css` a statikus
- * oldalról jön **változatlanul** (ott `styles.css`), és olyan
- * osztályneveket használ, mint a `.btn` vagy a `.hint`, amelyek a
- * foglalórendszer `globals.css`-ében is szerepelnek. Így a két design
- * nem tud összeakadni: a `/` és a `/buchen` soha nem ugyanazon a lapon
- * rendereldik.
+ * A separate route group and a separate stylesheet, because `site.css`
+ * comes from the static site **unchanged** (where it is `styles.css`)
+ * and uses class names such as `.btn` and `.hint` that also appear in
+ * the booking system's `globals.css`. This way the two designs cannot
+ * collide: `/` and `/buchen` never render on the same page.
  */
 export const metadata: Metadata = {
   title: 'STUDIO LUMEN | Bewegung & integrative Gesundheit, Zürich & Zug',

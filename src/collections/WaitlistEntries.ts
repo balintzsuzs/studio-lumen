@@ -1,8 +1,9 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Várólista. Lemondáskor a sorban első kap e-mailt és egy időablakot
- * (`offerExpiresAt`), amíg lefoglalhatja a felszabadult helyet.
+ * The waitlist. On a cancellation the first person in the queue gets an
+ * email and a time window (`offerExpiresAt`) in which to book the
+ * freed-up spot.
  */
 export const WaitlistEntries: CollectionConfig = {
   slug: 'waitlist-entries',

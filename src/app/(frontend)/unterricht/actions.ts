@@ -7,11 +7,11 @@ import { getCurrentUser } from '@/lib/auth'
 import { createSession } from '@/lib/ora'
 
 /**
- * Óra felvétele a stúdió nézetéből.
+ * Creating a class from the studio view.
  *
- * Csak admin: egy új óra a nyilvános órarendre kerül, és azonnal
- * foglalható. Az oktatók a saját óráikat vezetik, de az órarendet
- * Nadine állítja össze.
+ * Admin only: a new class goes onto the public schedule and is
+ * immediately bookable. Instructors run their own classes, but the
+ * owner puts the timetable together.
  */
 export async function addLesson(formData: FormData) {
   const user = await getCurrentUser()
@@ -30,7 +30,7 @@ export async function addLesson(formData: FormData) {
     studioId: Number(formData.get('studio')),
     instructorId: Number(formData.get('instructor')),
     perc: Number(formData.get('perc')),
-    // „auto": az oktató nyelvei érvényesek — ez az alapeset.
+    // "auto": the instructor's own languages apply — the default case.
     nyelvek: nyelv === 'de' ? ['de'] : nyelv === 'en' ? ['en'] : undefined,
     megjegyzes: String(formData.get('megjegyzes') ?? '').trim() || undefined,
   })
@@ -39,8 +39,8 @@ export async function addLesson(formData: FormData) {
   revalidatePath('/buchen')
 
   if (!r.ok) {
-    // A kitöltött értékeket visszaadjuk, hogy egy elütés miatt ne
-    // kelljen az egész űrlapot újra begépelni.
+    // Hand back what was filled in, so a single typo does not mean
+    // retyping the whole form.
     const q = new URLSearchParams({ fehler: r.reason, nap, ido })
     redirect(`/unterricht?${q.toString()}&ansicht=nap&datum=${nap}`)
   }

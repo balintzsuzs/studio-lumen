@@ -1,12 +1,12 @@
 /**
- * Alapadatok felvétele a prototípushoz.
+ * Seeds the prototype's base data.
  *
- * Futtatás:  curl -X POST http://localhost:3000/setup/seed
- * Újrafuttatható: ami már létezik, azt kihagyja.
+ * Run with:  curl -X POST http://localhost:3000/setup/seed
+ * Re-runnable: anything that already exists is skipped.
  *
- * Termek (kitalált stúdió, kitalált berendezés):
- *   Zürich  6 gép — 3 sor, soronként 2 db, 1. sor a tükör előtt
- *   Zug     4 gép — kisebb terem, 2 sor, soronként 2 db
+ * Rooms (fictional studio, fictional equipment):
+ *   Zürich  6 machines — 3 rows of 2, the first row at the mirror
+ *   Zug     4 machines — a smaller room, 2 rows of 2
  */
 import type { Payload } from 'payload'
 
@@ -17,7 +17,7 @@ const studios = [
     street: 'Werkgasse 7',
     postalCode: '8004',
     rows: 3,
-    layout: [2, 2, 2], // soronkénti gépszám, 1. sor a tükör előtt
+    layout: [2, 2, 2], // machines per row, row 1 at the mirror
   },
   {
     name: 'Studio Lumen Zug',
@@ -53,7 +53,7 @@ const classTypes = [
 
 export const seed = async (payload: Payload) => {
 
-  // --- stúdiók és gépek ---
+  // --- studios and machines ---
   for (const s of studios) {
     const existing = await payload.find({
       collection: 'studios', where: { name: { equals: s.name } }, limit: 1,
@@ -93,7 +93,7 @@ export const seed = async (payload: Payload) => {
     }
   }
 
-  // --- abo-típusok ---
+  // --- pass types ---
   for (const a of aboTypes) {
     const found = await payload.find({
       collection: 'abo-types', where: { name: { equals: a.name } }, limit: 1,
@@ -103,7 +103,7 @@ export const seed = async (payload: Payload) => {
     console.log('Abo-Typ angelegt:', a.name, `CHF ${a.priceChf}`)
   }
 
-  // --- óratípusok ---
+  // --- class types ---
   for (const c of classTypes) {
     const found = await payload.find({
       collection: 'class-types', where: { name: { equals: c.name } }, limit: 1,
@@ -113,7 +113,7 @@ export const seed = async (payload: Payload) => {
     console.log('Kursart angelegt:', c.name)
   }
 
-  // --- foglalási szabályok ---
+  // --- booking rules ---
   await payload.updateGlobal({
     slug: 'booking-settings',
     data: {
@@ -128,8 +128,8 @@ export const seed = async (payload: Payload) => {
 }
 
 /**
- * Teszt-órarend a következő két hétre, hogy legyen mit foglalni.
- * Reformer Flow mindkét stúdióban, hétköznap reggel és este.
+ * A test schedule for the next two weeks, so there is something to
+ * book. Reformer Flow in both studios, weekday mornings and evenings.
  */
 export const seedSessions = async (payload: any) => {
   const studios = await payload.find({ collection: 'studios', limit: 10, depth: 0 })
@@ -143,10 +143,11 @@ export const seedSessions = async (payload: any) => {
   if (!reformerType || !instructors.docs.length) return 'fehlende Grunddaten'
 
   /*
-   * Az oktatók váltakozva kapják az órákat. Enélkül minden új óra
-   * ugyanazé lenne, és az órarenden eltűnne a nyelvi változatosság —
-   * pedig épp az mutatja meg, hogy Elin angolul, a többiek németül
-   * és angolul is tartanak órát.
+   * Classes are handed to the instructors in rotation. Without this
+   * every new class would belong to the same person, and the language
+   * variety would vanish from the schedule — which is exactly what
+   * shows that Elin teaches in English and the others in both German
+   * and English.
    */
   const oktatok = instructors.docs as any[]
   let kovetkezo = 0
@@ -156,7 +157,7 @@ export const seedSessions = async (payload: any) => {
     const d = new Date()
     d.setDate(d.getDate() + day)
     const weekday = d.getDay()
-    if (weekday === 0) continue // vasárnap zárva
+    if (weekday === 0) continue // closed on Sundays
 
     for (const studio of studios.docs as any[]) {
       for (const hour of [9, 18]) {

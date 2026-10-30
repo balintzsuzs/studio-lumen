@@ -6,7 +6,7 @@ import { getClient } from '@/lib/booking'
 import { getCurrentUser } from '@/lib/auth'
 import { confirmPayment, cancelOrder } from '@/lib/abo'
 
-/** Csak adminnak. Minden action újra ellenőrzi, nem csak a lap. */
+/** Admin only. Every action re-checks this, not just the page. */
 const authorize = async () => {
   const user = await getCurrentUser()
   if (!user) redirect('/login?next=/verwaltung')

@@ -1,11 +1,12 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Elküldött értesítések naplója.
+ * A log of the notifications sent.
  *
- * Nem csak audit: a prototípusban nincs e-mail szolgáltató, ezért a levél
- * a konzolra megy, és itt marad meg olvashatóan. Nadine így utólag is
- * látja, ki mit kapott — ez a gyakorlatban többet ér, mint a postafiókja.
+ * Not just an audit trail: there is no email provider in the prototype,
+ * so the message goes to the console and survives here in readable
+ * form. That lets the studio see afterwards who received what — in
+ * practice more useful than their own sent folder.
  */
 export const Notifications: CollectionConfig = {
   slug: 'notifications',

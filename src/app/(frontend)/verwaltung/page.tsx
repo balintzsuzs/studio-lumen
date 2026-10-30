@@ -18,9 +18,9 @@ const FIZETES_KULCS: Record<string, SzotarKulcs> = {
 }
 
 /**
- * Nadine napi teendői egy lapon: nyitott abo-megrendelések, amiket a
- * fizetés beérkezése után fel kell szabadítani. Az admin felület
- * (/admin) mindent tud, de ez a lap az egy dolgot teszi gyorsan.
+ * The owner's daily to-do list on one page: open pass orders that need
+ * releasing once the payment has arrived. The Payload admin (/admin)
+ * can do everything, but this page does the one thing quickly.
  */
 export default async function Verwaltung({
   searchParams,

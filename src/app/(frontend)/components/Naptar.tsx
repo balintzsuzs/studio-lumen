@@ -8,44 +8,45 @@ import { napNeveRovid, napNeve, napEsHonap, honapEsEv, timeLabel } from '@/lib/f
 import type { Resztvevo } from '@/lib/resztvevo'
 
 /**
- * Naptár: nap, hét, hónap — ugyanaz a komponens az órarenden és a
- * stúdió oldalán.
+ * Calendar: day, week, month — the same component on the schedule and
+ * on the studio's side.
  *
- * Napközpontú felépítés. Fent a hónap, alatta egy vízszintes dátumsáv,
- * amin a kiválasztott nap ki van emelve; alatta az adott nap órái
- * egymás alatt, olvasható sorokban. A heti és a havi nézet ugyanezeket
- * a sorokat használja, csak több napra.
+ * Built around the day. The month at the top, below it a horizontal
+ * date strip with the selected day highlighted; under that, the day's
+ * classes stacked in readable rows. The week and month views use the
+ * same rows, just across more days.
  *
- * A komponens nem tud az adatbázisról. A lap összeállítja az
- * eseményeket, a naptár csak elrendezi őket — így ugyanaz a felépítés
- * szolgálja ki a vendéget és az oktatót, pedig mást írnak a sorokba.
+ * The component knows nothing about the database. The page assembles
+ * the events and the calendar only lays them out — so one structure
+ * serves both the customer and the instructor, even though they put
+ * different things in the rows.
  *
- * A nézet és a dátum az URL-ben van (`?ansicht=…&datum=…`), nem
- * állapotban: megosztható, visszalépéssel működik, újratöltésre sem
- * vész el.
+ * The view and the date live in the URL (`?ansicht=…&datum=…`), not in
+ * state: shareable, works with the back button, and survives a reload.
  */
 
 export type NaptarEsemeny = {
   id: number
-  /** Kezdés, ISO. */
+  /** Start time, ISO. */
   kezdet: string
   nap: string
-  /** Hossz percben, a bal oszlop alsó sorába. */
+  /** Duration in minutes, for the bottom line of the left column. */
   perc?: number
   cim: string
-  /** „Elin · Zürich” — aki tartja és hol. */
+  /** "Elin · Zürich" — who teaches it and where. */
   also?: string
-  /** Harmadik sor, ha van: nyelv, megjegyzés. */
+  /** A third line, if any: language, note. */
   harmadik?: string
-  /** Rövid állapot: „5 frei”, „ausgebucht”, „3/5”. */
+  /** Short status: "5 frei", "ausgebucht", "3/5". */
   jeloles?: string
   telt?: boolean
   lemondva?: boolean
-  /** A gomb felirata; ha nincs, nem jelenik meg gomb. */
+  /** The button's label; without one, no button is rendered. */
   gomb?: string
   /**
-   * Kik jönnek. Csak a stúdió nézetében van kitöltve: ott az óra
-   * magában keveset mond, az oktatót a nevek érdeklik.
+   * Who is coming. Only filled in on the studio's side: there the
+   * class on its own says little, and it is the names the instructor
+   * cares about.
    */
   resztvevok?: Resztvevo[]
   href: string
@@ -81,10 +82,10 @@ export default function Naptar({ mod, horgony, esemenyek, lang, alap, extra }: P
   const napEsemenyei = (nap: string) =>
     esemenyek.filter((e) => e.nap === nap).sort((a, b) => a.kezdet.localeCompare(b.kezdet))
 
-  /** A dátumsáv mindig a kiválasztott nap hetét mutatja. */
+  /** The date strip always shows the week of the selected day. */
   const savNapjai = naptarNapjai('het', horgony)
 
-  /** A sáv lapozása: héttel, akkor is, ha épp havi nézet van. */
+  /** Paging the strip: by a week, even when the month view is active. */
   const savLepes = (irany: 1 | -1) =>
     link({ datum: naptarLepes('het', horgony, irany) })
 
@@ -95,7 +96,7 @@ export default function Naptar({ mod, horgony, esemenyek, lang, alap, extra }: P
         ? `${napEsHonap(savNapjai[0], lang)} – ${napEsHonap(savNapjai[6], lang)}`
         : honapEsEv(horgony, lang)
 
-  /** Egy óra sora. Ugyanaz minden nézetben, csak a havi rácsban tömörebb. */
+  /** One class's row. The same in every view, only denser in the month grid. */
   const sor = (e: NaptarEsemeny, tomor = false) => (
     <li key={e.id} className={`ora-sor${e.lemondva ? ' lemondva' : ''}${tomor ? ' tomor' : ''}`}>
       <div className="ora-ido">
@@ -191,9 +192,10 @@ export default function Naptar({ mod, horgony, esemenyek, lang, alap, extra }: P
             return (
               <li key={nap}>
                 <Link
-                  /* Egy konkrét napra kattintva azt a napot akarom látni,
-                     nem a hetét. A heti és havi nézetre a fenti kapcsoló
-                     való — ez a sáv a napokról szól. */
+                  /* Clicking a specific day means I want to see that
+                     day, not its week. The toggle above is there for
+                     the week and month views — this strip is about
+                     days. */
                   href={link({ mod: 'nap', datum: nap })}
                   className={`sav-nap${kivalasztott ? ' on' : ''}${nap === maKulcs ? ' ma' : ''}`}
                   aria-current={kivalasztott ? 'date' : undefined}

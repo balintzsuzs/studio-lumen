@@ -1,21 +1,21 @@
 import type { Lang } from './lang'
 
 /**
- * A foglalórendszer szövegei németül és angolul.
+ * The booking system's wording, in German and English.
  *
- * Egyetlen szótár, nem fájlonként szétszórva: így egy szöveg
- * módosításakor rögtön látszik a párja, és nem marad lefordítatlan ág.
- * A kulcsok típusosak — elgépelt kulcsot a `tsc` kiszúr.
+ * One single dictionary rather than scattered per file: when a string
+ * changes, its counterpart is right there, and no branch is left
+ * untranslated. The keys are typed — `tsc` catches a mistyped one.
  *
- * A marketing oldal (`src/app/(site)` és `(site-en)`) nem innen jön:
- * ott a jóváhagyott HTML-ből gépileg átalakított jelölés van, két
- * külön útvonalon, mert azt a keresőknek is látniuk kell.
+ * The marketing site (`src/app/(site)` and `(site-en)`) does not come
+ * from here: that is markup converted mechanically from the approved
+ * HTML, on two separate routes, because search engines need to see it.
  *
- * Helyettesítés: a `{név}` alakú részeket a `t()` második argumentuma
- * tölti ki, például `t('konto.spaet', { ora: 24 })`.
+ * Interpolation: parts written as `{name}` are filled in by the second
+ * argument of `t()`, for example `t('konto.spaet', { ora: 24 })`.
  */
 export const SZOTAR = {
-  // ------------------------------------------------------------ általános
+  // ------------------------------------------------------------ general
   'kozos.anmelden': { de: 'Anmelden', en: 'Sign in' },
   'kozos.abmelden': { de: 'Abmelden', en: 'Sign out' },
   'kozos.abmelden_kicsi': { de: 'abmelden', en: 'sign out' },
@@ -34,14 +34,14 @@ export const SZOTAR = {
   'kozos.gueltig_bis': { de: 'gültig bis', en: 'valid until' },
   'kozos.nyelv_valto': { de: 'Sprache wählen', en: 'Choose language' },
 
-  // ------------------------------------------------------------ bejelentkezés
+  // ------------------------------------------------------------ sign-in
   'login.cim': { de: 'Anmelden', en: 'Sign in' },
   'login.email': { de: 'E-Mail', en: 'E-mail' },
   'login.jelszo': { de: 'Passwort', en: 'Password' },
   'login.megjegyzes': { de: 'Anmeldung per E-Mail-Link folgt.', en: 'Sign-in by e-mail link is coming.' },
   'login.vissza': { de: 'Zurück zum Stundenplan', en: 'Back to the schedule' },
 
-  // ------------------------------------------------------------ órarend
+  // ------------------------------------------------------------ schedule
   'buchen.eyebrow': { de: 'Stundenplan', en: 'Schedule' },
   'buchen.cim': { de: 'Reformer buchen', en: 'Book a reformer class' },
   'buchen.angemeldet_als': { de: 'Angemeldet als {nev}', en: 'Signed in as {nev}' },
@@ -49,7 +49,7 @@ export const SZOTAR = {
   'buchen.nincs_ora': { de: 'Zurzeit sind keine Lektionen ausgeschrieben.', en: 'No classes are scheduled at the moment.' },
   'buchen.gomb': { de: 'Buchen', en: 'Book' },
 
-  // ------------------------------------------------------------ óra részletei
+  // ------------------------------------------------------------ class details
   'ora.uhr': { de: 'Uhr', en: '' },
   'ora.warteliste_pozicio': {
     de: 'Du stehst auf der Warteliste, Position {pozicio}. Wir schreiben dir, sobald ein Platz frei wird.',
@@ -94,7 +94,7 @@ export const SZOTAR = {
   'ora.pozicio_sor': { de: 'Du stehst auf Position {pozicio} von {osszes}.', en: 'You are at position {pozicio} of {osszes}.' },
   'ora.varolistarol_le': { de: 'Von der Warteliste abmelden', en: 'Leave the waiting list' },
 
-  // ------------------------------------------------------------ fiók
+  // ------------------------------------------------------------ account
   'konto.eyebrow': { de: 'Mein Konto', en: 'My account' },
   'konto.gebucht': { de: 'Buchung bestätigt.', en: 'Booking confirmed.' },
   'konto.storno_jovairva': { de: 'Storniert, das Guthaben wurde zurückgebucht.', en: 'Cancelled, the credit has been returned.' },
@@ -109,7 +109,7 @@ export const SZOTAR = {
   'konto.storno_gut': { de: 'storniert, gutgeschrieben', en: 'cancelled, credited back' },
   'konto.storno_verfallen': { de: 'storniert, verfallen', en: 'cancelled, forfeited' },
 
-  // ------------------------------------------------------------ abók
+  // ------------------------------------------------------------ passes
   'abos.eyebrow': { de: 'Preise', en: 'Prices' },
   'abos.cim': { de: 'Abos', en: 'Passes' },
   'abos.lead': {
@@ -154,7 +154,7 @@ export const SZOTAR = {
   'abos.fizetes_voucher': { de: 'Gutschein', en: 'Voucher' },
   'abos.fizetes_online': { de: 'Karte / TWINT', en: 'Card / TWINT' },
 
-  // ------------------------------------------------------------------ naptár
+  // ------------------------------------------------------------------ calendar
   'naptar.nezet': { de: 'Ansicht', en: 'View' },
   'naptar.nap': { de: 'Tag', en: 'Day' },
   'naptar.het': { de: 'Woche', en: 'Week' },
@@ -175,7 +175,7 @@ export const SZOTAR = {
   },
   'naptar.woche_waehlen': { de: 'Woche wählen', en: 'Choose week' },
 
-  // ------------------------------------------------------------ oktatói nézet
+  // ------------------------------------------------------------ instructor view
   'okt.cim': { de: 'Unterricht', en: 'Teaching' },
   'okt.lead_admin': { de: 'Alle Lektionen. Anwesenheit erfassen und Lektionen absagen.', en: 'All classes. Record attendance and cancel classes.' },
   'okt.kovetkezo': { de: 'Kommende Lektionen', en: 'Upcoming classes' },
@@ -191,7 +191,7 @@ export const SZOTAR = {
   'okt.offen': { de: 'offen', en: 'open' },
   'okt.abgesagt': { de: 'abgesagt', en: 'cancelled' },
 
-  // ------------------------------------------------------------ óra, oktatói
+  // ------------------------------------------------------------ class, instructor
   'oktora.resztvevok': { de: 'Teilnehmerinnen ({db} von {osszes})', en: 'Participants ({db} of {osszes})' },
   'oktora.nincs_jelentkezo': { de: 'Noch keine Anmeldungen.', en: 'No registrations yet.' },
   'oktora.felveve': { de: 'Anwesenheit erfasst.', en: 'Attendance recorded.' },
@@ -259,7 +259,7 @@ export const SZOTAR = {
     en: 'Cancel for too few registrations (minimum 2)',
   },
 
-  // ------------------------------------------------------------ ügyintézés
+  // ------------------------------------------------------------ administration
   'verw.eyebrow': { de: 'Verwaltung', en: 'Administration' },
   'verw.cim': { de: 'Offene Bestellungen', en: 'Open orders' },
   'verw.felszabaditva': {
@@ -283,9 +283,9 @@ export const SZOTAR = {
   'verw.nincs_aktiv': { de: 'Noch keine aktiven Abos.', en: 'No active passes yet.' },
   'verw.bezahlt_cimke': { de: 'bezahlt {datum}', en: 'paid {datum}' },
 
-  // ------------------------------------------------------------ levelek
-  // Az értesítő levelek a CÍMZETT nyelvén mennek (`users.language`),
-  // nem azén, aki a műveletet elindította.
+  // ------------------------------------------------------------ emails
+  // Notification emails go in the RECIPIENT's language
+  // (`users.language`), not that of whoever triggered the action.
   'level.megszolitas': { de: 'Liebe {nev}', en: 'Dear {nev}' },
   'level.megszolitas_altalanos': { de: 'Kundin', en: 'customer' },
   'level.alairas': {
@@ -346,8 +346,8 @@ export const SZOTAR = {
     en: 'we have received your payment — your pass is active:\n\n  {abo} · {db} classes\n  Valid until {ervenyes}\n\nBook a class now: {link}\n\nWe look forward to seeing you.',
   },
 
-  // ------------------------------------------------------------ hibaüzenetek
-  // Ezeket a `src/lib` rétege adja vissza kulcsként, és a lapok fordítják.
+  // ------------------------------------------------------------ error messages
+  // The `src/lib` layer returns these as keys, and the pages translate them.
   'hiba.abo_nincs': { de: 'Abo nicht gefunden.', en: 'Pass not found.' },
   'hiba.buchung_nincs': { de: 'Buchung nicht gefunden.', en: 'Booking not found.' },
   'hiba.nem_a_te_bejegyzesed': { de: 'Das ist nicht dein Eintrag.', en: 'That is not your entry.' },
@@ -420,7 +420,7 @@ export const SZOTAR = {
     en: 'People are booked — cancel the class instead of deleting it.',
   },
   'hiba.indok_kell': { de: 'Bitte einen Grund angeben.', en: 'Please give a reason.' },
-  // ------------------------------------------------------------ vendégek (stúdió)
+  // ------------------------------------------------------------ customers (studio)
   'kunde.eyebrow': { de: 'Studio', en: 'Studio' },
   'kunde.lista_cim': { de: 'Kundinnen & Kunden', en: 'Customers' },
   'kunde.lista_lead': {
@@ -476,7 +476,7 @@ export const SZOTAR = {
   },
   'kunde.tovabbi': { de: 'Weitere {db} anzeigen', en: 'Show {db} more' },
   'kunde.kundinnen': { de: 'Kundinnen', en: 'Customers' },
-  // ------------------------------------------------------------ óra felvétele / törlése
+  // ------------------------------------------------------------ creating / deleting a class
   'ujora.cim': { de: 'Lektion hinzufügen', en: 'Add a class' },
   'ujora.nyit': { de: '+ Lektion hinzufügen', en: '+ Add a class' },
   'ujora.zar': { de: 'Abbrechen', en: 'Cancel' },
@@ -506,7 +506,7 @@ export const SZOTAR = {
 
 export type SzotarKulcs = keyof typeof SZOTAR
 
-/** Egy hibaüzenet kulcsa — ezt adják vissza a `src/lib` függvényei. */
+/** The key of an error message — what the `src/lib` functions return. */
 export type HibaKulcs = Extract<SzotarKulcs, `hiba.${string}`>
 
 const behelyettesit = (szoveg: string, ertekek?: Record<string, string | number>) =>
@@ -517,7 +517,7 @@ const behelyettesit = (szoveg: string, ertekek?: Record<string, string | number>
     : szoveg
 
 /**
- * Fordító a megadott nyelvre.
+ * A translator bound to the given language.
  *
  *     const t = forditó('en')
  *     t('konto.storno_elveszett', { ora: 24 })
@@ -528,6 +528,6 @@ export const forditó = (lang: Lang) =>
 
 export type Fordito = ReturnType<typeof forditó>
 
-/** Igaz, ha a kapott sztring szótárkulcs — a `?fehler=` paraméter ellenőrzéséhez. */
+/** True if the string is a dictionary key — for validating the `?fehler=` parameter. */
 export const szotarKulcs = (v: unknown): v is SzotarKulcs =>
   typeof v === 'string' && v in SZOTAR

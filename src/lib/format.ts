@@ -1,13 +1,14 @@
 import type { Lang } from './lang'
 
 /**
- * Dátumformázás svájci szokás szerint, németül és angolul.
+ * Date formatting to Swiss convention, in German and English.
  *
- * Mindig `Europe/Zurich` zónában, nem a szerver helyi idejében: a Vercel
- * UTC-ben fut, ott a 07:00-as óra 06.00-ként jelenne meg.
+ * Always in `Europe/Zurich`, never in the server's local time: Vercel
+ * runs in UTC, where a 07:00 class would show up as 06.00.
  *
- * A nyelv mindenhol elhagyható, és akkor német — így az a hívó, amelyik
- * nem nyelvfüggő (például egy napló), változatlanul használható.
+ * The language can be omitted everywhere and then defaults to German —
+ * so a caller that is not language-dependent (a log, say) can be used
+ * unchanged.
  */
 const ZONE = 'Europe/Zurich'
 
@@ -21,7 +22,7 @@ const MONTHS: Record<Lang, string[]> = {
   en: ['January','February','March','April','May','June','July','August','September','October','November','December'],
 }
 
-/** Év, hónap, nap, óra, perc és hétköznap svájci helyi időben. */
+/** Year, month, day, hour, minute and weekday in Swiss local time. */
 const parts = (iso: string) => {
   const f = new Intl.DateTimeFormat('en-US', {
     timeZone: ZONE, hour12: false,
@@ -37,7 +38,7 @@ const parts = (iso: string) => {
   }
 }
 
-/** „Donnerstag, 5. Juni" / „Thursday, 5 June" */
+/** "Donnerstag, 5. Juni" / "Thursday, 5 June" */
 export const dayLabel = (iso: string, lang: Lang = 'de') => {
   const p = parts(iso)
   const nap = WEEKDAYS[lang][p.weekdayIndex]
@@ -46,8 +47,9 @@ export const dayLabel = (iso: string, lang: Lang = 'de') => {
 }
 
 /**
- * Óra és perc. Németül ponttal (07.30), angolul kettősponttal (07:30) —
- * ez a két nyelv írott szokása, a stúdió nyomtatott órarendje is így néz ki.
+ * Hours and minutes. German uses a dot (07.30), English a colon
+ * (07:30) — that is written convention in each language, and the
+ * studio's printed schedule looks the same way.
  */
 export const timeLabel = (iso: string, lang: Lang = 'de') => {
   const p = parts(iso)
@@ -55,7 +57,7 @@ export const timeLabel = (iso: string, lang: Lang = 'de') => {
   return `${String(p.hour).padStart(2, '0')}${elvalaszto}${String(p.minute).padStart(2, '0')}`
 }
 
-/** Teljes időpont egy sorban, értesítő levelekhez. */
+/** A full timestamp on one line, for notification emails. */
 export const dateTimeLabel = (iso: string, lang: Lang = 'de') => {
   const p = parts(iso)
   const datum = dayLabel(iso, lang)
@@ -64,11 +66,11 @@ export const dateTimeLabel = (iso: string, lang: Lang = 'de') => {
     : `${datum} ${p.year}, ${timeLabel(iso, lang)}`
 }
 
-/** Dátum számokkal, a helyi szokás szerint: 05.06.2026 / 05/06/2026. */
+/** Numeric date, to local convention: 05.06.2026 / 05/06/2026. */
 export const shortDateLabel = (iso: string, lang: Lang = 'de') =>
   new Date(iso).toLocaleDateString(lang === 'de' ? 'de-CH' : 'en-GB')
 
-/** Naptári nap svájci idő szerint, csoportosításhoz. */
+/** Calendar day in Swiss time, for grouping. */
 export const dayKey = (iso: string) => {
   const p = parts(iso)
   return `${p.year}-${String(p.month).padStart(2, '0')}-${String(p.day).padStart(2, '0')}`
@@ -77,9 +79,9 @@ export const dayKey = (iso: string) => {
 export const isToday = (iso: string) => dayKey(iso) === dayKey(new Date().toISOString())
 
 /**
- * Az óra nyelve: ha az órán van saját beállítás, az dönt, különben az
- * oktatóé. Így egy oktató nyelvének módosítása az összes óráján átüt,
- * de egy-egy kivétel mégis megadható.
+ * The language of a class: a setting on the class itself wins, else the
+ * instructor's. That way changing an instructor's languages carries to
+ * all their classes, while individual exceptions remain possible.
  */
 export const sessionLanguages = (session: any): string[] => {
   const own = session?.languages
@@ -89,32 +91,32 @@ export const sessionLanguages = (session: any): string[] => {
   return Array.isArray(theirs) ? theirs : []
 }
 
-/** Rövid címke az órarendre: „DE", „EN" vagy „DE/EN". */
+/** Short label for the schedule: "DE", "EN" or "DE/EN". */
 export const languageLabel = (session: any): string =>
   sessionLanguages(session)
     .map((l) => l.toUpperCase())
     .join('/')
 
-/** Rövid hétköznap-név egy naptári naphoz (`'ÉÉÉÉ-HH-NN'`). */
+/** Short weekday name for a calendar day (`'YYYY-MM-DD'`). */
 export const napNeveRovid = (nap: string, lang: Lang = 'de'): string => {
   const [y, m, d] = nap.split('-').map(Number)
   const index = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
   return WEEKDAYS[lang][index].slice(0, lang === 'de' ? 2 : 3)
 }
 
-/** Teljes hétköznap-név egy naptári naphoz. */
+/** Full weekday name for a calendar day. */
 export const napNeve = (nap: string, lang: Lang = 'de'): string => {
   const [y, m, d] = nap.split('-').map(Number)
   return WEEKDAYS[lang][new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
 }
 
-/** „29. Oktober” / „29 October” egy naptári naphoz. */
+/** "29. Oktober" / "29 October" for a calendar day. */
 export const napEsHonap = (nap: string, lang: Lang = 'de'): string => {
   const [, m, d] = nap.split('-').map(Number)
   return lang === 'de' ? `${d}. ${MONTHS.de[m - 1]}` : `${d} ${MONTHS.en[m - 1]}`
 }
 
-/** „Oktober 2026” — a naptár fejlécébe. */
+/** "Oktober 2026" — for the calendar header. */
 export const honapEsEv = (nap: string, lang: Lang = 'de'): string => {
   const [y, m] = nap.split('-').map(Number)
   return `${MONTHS[lang][m - 1]} ${y}`

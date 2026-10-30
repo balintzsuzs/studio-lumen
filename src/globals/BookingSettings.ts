@@ -1,8 +1,8 @@
 import type { GlobalConfig } from 'payload'
 
 /**
- * A foglalási szabályok egy helyen, hogy Nadine tudja állítani őket
- * anélkül, hogy kódot kellene módosítani.
+ * The booking rules in one place, so the studio can change them without
+ * anyone having to touch code.
  */
 export const BookingSettings: GlobalConfig = {
   slug: 'booking-settings',
@@ -26,16 +26,16 @@ export const BookingSettings: GlobalConfig = {
     },
     {
       /*
-       * Nincs „meddig előre lehet foglalni" korlát, és szándékosan nincs.
-       * Ez a mező 30 napot hirdetett, csakhogy a kód soha nem nézte meg:
-       * egy kapcsoló, ami nem kapcsolt semmit — és rosszabb a hiányánál,
-       * mert azt ígérte, hogy véd valamitől. Minden meghirdetett óra
-       * azonnal foglalható; ha egy óra még ne legyen elérhető, akkor nem
-       * kell meghirdetni.
+       * There is no "how far ahead you may book" limit, and that is
+       * deliberate. This field advertised 30 days, except the code
+       * never looked at it: a switch that switched nothing — and worse
+       * than its absence, because it promised to protect against
+       * something. Every published class is bookable immediately; if a
+       * class should not be available yet, do not publish it.
        *
-       * Rejtve marad, nem törölve, hogy a meglévő adatbázis-oszlopot ne
-       * kelljen eldobni — ugyanaz a megfontolás, mint a lenti
-       * `waitlistOfferHours`-nál. Ne használd.
+       * Kept hidden rather than deleted so the existing database column
+       * does not have to be dropped — the same reasoning as for
+       * `waitlistOfferHours` below. Do not use it.
        */
       name: 'bookingOpensDays',
       type: 'number',
@@ -43,8 +43,8 @@ export const BookingSettings: GlobalConfig = {
       admin: { hidden: true },
     },
     {
-      // Lépcsőzetes várólista-ablak. Minél közelebb az óra, annál rövidebb
-      // ideig érvényes az ajánlat, különben a felszabadult hely elveszik.
+      // The sliding waitlist window. The closer the class, the shorter
+      // the offer stays valid, otherwise the freed-up spot is lost.
       name: 'waitlistWindows',
       type: 'array',
       label: 'Warteliste: Angebotsfrist',
@@ -86,18 +86,18 @@ export const BookingSettings: GlobalConfig = {
       },
     },
     {
-      // Régi, fix ajánlati idő. A lépcsőzetes `waitlistWindows` váltotta
-      // fel; csak azért marad itt, hogy a meglévő adatbázis-oszlopot ne
-      // kelljen átnevezni. Ne használd.
+      // The old fixed offer duration, superseded by the sliding
+      // `waitlistWindows`. It stays only so the existing database
+      // column does not have to be renamed. Do not use it.
       name: 'waitlistOfferHours',
       type: 'number',
       label: 'Warteliste: Angebot gültig für (Stunden) — veraltet',
       admin: { hidden: true },
     },
     {
-      // Fizetési útmutató a megrendelés visszaigazoló levelébe.
-      // Szándékosan nincs benne IBAN vagy számlaszám: azt a stúdió tulajdonosának
-      // kell beírnia, nem tippelhetjük meg.
+      // Payment instructions for the order confirmation email.
+      // Deliberately contains no IBAN or account number: the studio
+      // owner has to fill that in, and we cannot guess it.
       name: 'paymentInstructions',
       type: 'textarea',
       label: 'Zahlungshinweise für Abo-Bestellungen',
@@ -109,9 +109,9 @@ export const BookingSettings: GlobalConfig = {
       },
     },
     {
-      // A lusta ütemező utolsó futása. Nem beállítás, csak itt van a
-      // legkevesebb kerülőút: a Payload global egyetlen sor, amit minden
-      // szerverpéldány lát.
+      // The last run of the lazy scheduler. Not a setting; this is
+      // simply the least roundabout place for it, because a Payload
+      // global is one row that every server instance can see.
       name: 'lastWaitlistTickAt',
       type: 'date',
       label: 'Warteliste zuletzt geprüft',

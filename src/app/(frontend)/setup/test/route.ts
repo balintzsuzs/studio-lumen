@@ -4,11 +4,12 @@ import { runAll } from '@/lib/test-suite'
 import { tesztTiltas } from '@/lib/guard'
 
 /**
- * A foglalási szabályok teljes teszt-készlete.
+ * The full test suite for the booking rules.
  *
- * Csak ALLOW_SEED=true mellett, és csak a HELYI SQLite adatbázison fut.
- * Az élesen (Postgres) nem: a készlet teszt-ügyfeleket és teszt-órákat
- * hoz létre, és ha maradék marad belőlük, az a bemutatón is látszik.
+ * Runs only with ALLOW_SEED=true, and only against the LOCAL SQLite
+ * database. Never against production (Postgres): the suite creates test
+ * customers and test classes, and anything left behind would show up in
+ * the demo.
  *
  *   curl -X POST http://localhost:3000/setup/test
  */

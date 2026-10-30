@@ -3,18 +3,20 @@ import type { SzotarKulcs } from './i18n'
 import { isYoungMember } from './abo'
 
 /**
- * Egy résztvevő megjelenítése az oktatói nézetben.
+ * Rendering one participant in the instructor's view.
  *
- * Két helyen kell ugyanaz: az óra saját oldalán a jelenléti listában, és
- * a naptárban az óra alatt. Ezért van közös fájlban — különben a kettő
- * idővel szétcsúszna, és máshol mást mutatna ugyanarról az emberről.
+ * The same thing is needed in two places: in the register on the
+ * class's own page, and under the class in the calendar. Hence a shared
+ * file — otherwise the two would drift apart over time and show
+ * different things about the same person.
  */
 
 export type Ford = (k: SzotarKulcs, p?: Record<string, string | number>) => string
 
 /**
- * Mivel vesz részt az órán: melyik abo, és mennyi maradt belőle.
- * Az oktatónak óra előtt ez a leggyakoribb kérdése, mindjárt a név után.
+ * What they are attending on: which pass, and how much is left on it.
+ * Before a class this is the instructor's most frequent question, right
+ * after the name.
  */
 export const reszvetelSzoveg = (b: any, t: Ford): string => {
   const abo = b?.abo
@@ -28,8 +30,9 @@ export const reszvetelSzoveg = (b: any, t: Ford): string => {
 }
 
 /**
- * Tarifa-jelzések a név mellé. A Young Member a születési évből jön,
- * nem külön kapcsolóból — így nem avul el magától.
+ * Rate markers next to the name. Young Member comes from the birth
+ * year, not from a separate flag — that way it cannot go stale on its
+ * own.
  */
 export const tarifaJelzesek = (kunde: any, t: Ford): string[] => {
   const ki: string[] = []
@@ -38,7 +41,7 @@ export const tarifaJelzesek = (kunde: any, t: Ford): string[] => {
   return ki
 }
 
-/** Egy résztvevő soruk a naptárban. */
+/** One participant's row in the calendar. */
 export type Resztvevo = {
   id: number
   nev: string
@@ -46,8 +49,8 @@ export type Resztvevo = {
   abo?: string
   jelzesek: string[]
   egeszseg?: string
-  /** Csak akkor, ha nem egyszerűen „gebucht”. */
+  /** Only when it is not simply "gebucht". */
   allapot?: string
-  /** A vendég profilja. Ha nincs, a név nem hivatkozás. */
+  /** The customer's profile. Without one, the name is not a link. */
   href?: string
 }

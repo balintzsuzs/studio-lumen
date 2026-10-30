@@ -52,13 +52,13 @@ export default async function LessonPage({
     notFound()
   }
   if (!session) notFound()
-  // Bármelyik oktató megnyithatja bármelyik órát — lásd a lista-oldalt.
+  // Any instructor may open any class — see the list page for why.
 
   const bookings = await payload.find({
     collection: 'bookings',
     where: { session: { equals: sessionId } },
-    // depth 2: az abo-n keresztul az abo TIPUSA is kell (nev, kredit),
-    // kulonben csak egy azonosito jonne vissza.
+    // depth 2: through the pass we also need the pass's TYPE (name,
+    // credits), otherwise only an id would come back.
     sort: 'bookedAt', limit: 200, depth: 2,
   })
   const rows = bookings.docs as any[]
@@ -75,8 +75,8 @@ export default async function LessonPage({
   const isPast = new Date(session.startsAt) <= new Date()
   const isCancelled = session.status === 'cancelled'
 
-  // Megjelenési statisztika csak elmúlt óránál érdekes, és csak az
-  // oktatónak segít eldönteni, kit érdemes megkérdezni.
+  // Attendance statistics only matter for a past class, and they only
+  // help the instructor decide who is worth asking.
   const stats = isPast
     ? new Map(await Promise.all(active.map(async (b) =>
         [b.id, await getReliability(payload, idOf(b.customer))] as const,
@@ -94,8 +94,9 @@ export default async function LessonPage({
         {lang === 'de' ? ' Uhr' : ''} ·{' '}
         {session.durationMinutes} {t('kozos.minuten')}
         {languageLabel(session) && ` · ${languageLabel(session)}`}
-        {/* Ki tartja az órát. Mióta minden oktató minden órát lát,
-            ez mindenkinek kell — különben nem tudja, kiébe nézett bele. */}
+        {/* Who teaches the class. Now that every instructor sees every
+            class, everyone needs this — otherwise they cannot tell
+            whose class they have opened. */}
         {session.instructor
           ? ` · ${session.instructor.firstName} ${session.instructor.lastName ?? ''}`
           : ''}
@@ -179,10 +180,10 @@ export default async function LessonPage({
                     <td>{b.reformer?.label ?? '—'}</td>
                     <td>{reszvetelSzoveg(b, t)}</td>
                     <td>
-                      {/* Lement óránál a „gebucht" nem állapot, hanem
-                          még-nem-nyúltak-hozzá: a szabály szerint ez
-                          megjelenést jelent. Ne mondjunk mást, mint
-                          amit a rendszer tenni fog. */}
+                      {/* On a finished class "gebucht" is not a status
+                          but a not-touched-yet: by the rule, it means
+                          attended. Do not say anything other than what
+                          the system is going to do. */}
                       {isPast && b.status === 'booked'
                         ? t('oktora.gilt_anwesend')
                         : STATUS_KULCS[b.status] ? t(STATUS_KULCS[b.status]) : b.status}
@@ -193,10 +194,10 @@ export default async function LessonPage({
                       <td>
                         {b.status === 'cancelled' ? '—' : (
                           /*
-                           * Egy gomb, nem kettő. Az oktatónak csak a
-                           * hiányzót kell megjelölnie; aki megjelent,
-                           * azzal nincs dolga. A megjelölés visszavonható,
-                           * mert elkattintani bárki el tud.
+                           * One button, not two. The instructor only
+                           * marks who was absent; there is nothing to
+                           * do about someone who turned up. The mark
+                           * can be undone, because anyone can misclick.
                            */
                           <form action={setAttendance}>
                             <input type="hidden" name="sessionId" value={sessionId} />
@@ -284,10 +285,11 @@ export default async function LessonPage({
       )}
 
       {/*
-        Törlés csak adminnak, és csak üres órán. Ahol van jelentkező, ott a
-        lemondás a helyes eszköz: az visszatéríti a kreditet és szól
-        mindenkinek, a törlés pedig nyomtalanul tüntetné el az órát.
-        A gombot ezért ki sem tesszük, ha van kit érintene.
+        Deleting is for admins only, and only on an empty class. Where
+        there are participants, cancelling is the right tool: it refunds
+        the credit and tells everyone, while deleting would make the
+        class vanish without a trace. So the button is not even rendered
+        when there is anyone it would affect.
       */}
       {user.role === 'admin' && active.length === 0 && (
         <section className="day danger">

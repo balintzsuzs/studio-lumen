@@ -6,33 +6,33 @@ import { getSettings, getAvailability, createBooking, type WaitlistWindow } from
 import { waitlistOffer, waitlistReleased } from './notify'
 
 /**
- * Várólista lépcsőzetes ajánlati ablakkal.
+ * Waitlist with a sliding offer window.
  *
- * Az iparági gyakorlat (FitDegree, Hapana, Momence) nem fix időt ad a
- * válaszra, hanem annál rövidebbet, minél közelebb az óra: 48 óránál
- * több idő esetén akár 12 óra, 13 óra alatt már csak percek. Fix 6 óra
- * két órával az óra előtt értelmetlen lenne.
+ * Industry practice (FitDegree, Hapana, Momence) does not give a fixed
+ * time to respond, but a shorter one the closer the class is: with more
+ * than 48 hours to go it can be 12 hours, under 13 hours only minutes.
+ * A fixed 6 hours would be meaningless two hours before a class.
  *
- * A `waitlistLockHours`-on belül már nem ajánlunk senkinek: a hely
- * azonnal mindenki számára szabaddá válik, a várakozók értesítést
- * kapnak, hogy foglalhatnak.
+ * Inside `waitlistLockHours` nobody gets an exclusive offer any more:
+ * the spot opens to everyone at once and the people waiting are told
+ * they can book.
  */
 
 const idOf = (v: unknown): number =>
   typeof v === 'object' && v !== null ? (v as { id: number }).id : (v as number)
 
-/** Az adott órához tartozó ajánlati ablak percben. */
+/** The offer window for this class, in minutes. */
 export const offerMinutesFor = (windows: WaitlistWindow[], startsAt: Date, now = new Date()): number => {
   const hoursLeft = (startsAt.getTime() - now.getTime()) / 36e5
   const sorted = [...windows].sort((a, b) => b.fromHoursBefore - a.fromHoursBefore)
   for (const w of sorted) if (hoursLeft >= w.fromHoursBefore) return w.offerMinutes
-  // Ha minden lépcső fölötte van (pl. már elkezdődött), a legrövidebb jár.
+  // If every step is above us (e.g. the class has started), the shortest applies.
   return sorted[sorted.length - 1]?.offerMinutes ?? 20
 }
 
 export type JoinResult = { ok: true; entryId: number; position: number } | { ok: false; reason: HibaKulcs }
 
-/** Feliratkozás a várólistára. Csak tele óránál, és csak egyszer. */
+/** Joining the waitlist. Only for a full class, and only once. */
 export const joinWaitlist = async (
   payload: Payload,
   userId: number,
@@ -78,7 +78,7 @@ export const joinWaitlist = async (
   return { ok: true, entryId: entry.id as number, position }
 }
 
-/** Kilépés a várólistáról. */
+/** Leaving the waitlist. */
 export const leaveWaitlist = async (
   payload: Payload,
   userId: number,
@@ -107,13 +107,14 @@ export type Offer = {
 
 export type PromoteResult =
   | { kind: 'offered'; offer: Offer }
-  | { kind: 'released'; entryIds: number[] } // lock-ablakon belül: mindenkinek szabad
+  | { kind: 'released'; entryIds: number[] } // inside the lock window: open to everyone
   | { kind: 'nothing'; reason: HibaKulcs }
 
 /**
- * Felszabadult hely kiajánlása a sor első várakozójának.
- * Lemondás után és egy perces ütemezőből is hívható, idempotens:
- * ha már van élő ajánlat, nem ad ki másodikat.
+ * Offers a freed-up spot to the first person in the queue.
+ * Called both after a cancellation and from the one-minute scheduler,
+ * and is idempotent: if a live offer already exists, it does not issue
+ * a second one.
  */
 export const promoteWaitlist = async (
   payload: Payload,
@@ -133,7 +134,7 @@ export const promoteWaitlist = async (
   const free = (await getAvailability(payload, sessionId)).filter((r) => r.status === 'free')
   if (!free.length) return { kind: 'nothing', reason: 'hiba.nincs_szabad_hely' }
 
-  // Van-e már élő ajánlat? Akkor hagyjuk lejárni.
+  // Is there already a live offer? Then let it run out.
   const live = await payload.find({
     collection: 'waitlist-entries',
     where: {
@@ -157,7 +158,7 @@ export const promoteWaitlist = async (
   const { waitlistWindows, waitlistLockHours } = await getSettings(payload)
   const hoursLeft = (startsAt.getTime() - now.getTime()) / 36e5
 
-  // Túl közel az óra: nincs értelme egyvalakit megvárni — mindenki foglalhat.
+  // Too close to the class: no point waiting on one person — open it to all.
   if (hoursLeft < waitlistLockHours) {
     const ids: number[] = []
     for (const e of waiting.docs as any[]) {
@@ -173,7 +174,7 @@ export const promoteWaitlist = async (
 
   const first = (waiting.docs as any[])[0]
   const offerMinutes = offerMinutesFor(waitlistWindows, startsAt, now)
-  // Az ajánlat soha ne nyúljon túl a lock-ablak kezdetén.
+  // An offer must never reach past the start of the lock window.
   const latest = new Date(startsAt.getTime() - waitlistLockHours * 36e5)
   const expiresAt = new Date(Math.min(now.getTime() + offerMinutes * 60000, latest.getTime()))
 
@@ -201,12 +202,12 @@ export const promoteWaitlist = async (
 }
 
 /**
- * Minden jövőbeli óra, ahol valaki vár és közben szabad lett hely.
+ * Every future class where someone is waiting and a spot has opened up.
  *
- * A lemondás maga is kiajánlja a helyet, de nem minden felszabadulás
- * megy lemondáson át: egy gép visszakerül karbantartásból, az admin
- * töröl egy foglalást, vagy a kiajánlás egyszer hibára fut. Ez a söprés
- * ezeket fogja be, ezért az ütemező mindig lefuttatja.
+ * Cancelling already offers the spot on its own, but not every opening
+ * goes through a cancellation: a machine comes back from maintenance,
+ * an admin deletes a booking, or an offer attempt fails once. This
+ * sweep catches those, which is why the scheduler always runs it.
  */
 export const sweepOpenSpots = async (
   payload: Payload,
@@ -228,8 +229,9 @@ export const sweepOpenSpots = async (
 }
 
 /**
- * Lejárt ajánlatok elévültté tétele és a következő ember kiajánlása.
- * Ütemezőből hívandó (a prototípusban a /setup/waitlist-tick útvonal).
+ * Expires offers that have run out and offers the spot to the next
+ * person. Meant to be called from a scheduler (in this prototype, the
+ * /setup/waitlist-tick route).
  */
 export const expireOffers = async (
   payload: Payload,
@@ -262,7 +264,7 @@ export const expireOffers = async (
   return { expired: stale.docs.length, promoted }
 }
 
-/** Egy ütemező-kör: lejáratás, majd söprés a szabaddá vált helyekre. */
+/** One scheduler round: expire offers, then sweep for freed-up spots. */
 export const runWaitlistTick = async (
   payload: Payload,
   now = new Date(),
@@ -270,17 +272,17 @@ export const runWaitlistTick = async (
   const a = await expireOffers(payload, now)
   const b = await sweepOpenSpots(payload, now)
   /*
-   * A régen lement órák lezárása itt kap ütemet, ugyanazon az okon,
-   * mint a várólista: a Vercel ingyenes csomagján a cron naponta csak
-   * egyszer fut, tehát az első látogató hozza magával az ütemet.
+   * Closing long-finished classes gets its beat here, for the same
+   * reason as the waitlist: on Vercel's free plan the cron runs only
+   * once a day, so the first visitor brings the beat with them.
    */
   const c = await closeStaleSessions(payload, now)
   return { expired: a.expired, promoted: a.promoted + b.promoted, closed: c.sessions }
 }
 
 /**
- * Az ajánlat beváltása: a várólistás lefoglalja a felszabadult helyet.
- * Csak a saját, még élő ajánlatával lehet.
+ * Claiming the offer: the person on the waitlist books the freed-up
+ * spot. Only possible with their own offer, and only while it is live.
  */
 export const claimOffer = async (
   payload: Payload,
@@ -309,7 +311,7 @@ export const claimOffer = async (
   return booked
 }
 
-/** Az ügyfél aktuális várólista-bejegyzése ezen az órán, ha van. */
+/** The customer's current waitlist entry for this class, if any. */
 export const getMyEntry = async (
   payload: Payload,
   userId: number,
@@ -329,7 +331,7 @@ export const getMyEntry = async (
   return (r.docs as any[])[0] ?? null
 }
 
-/** Hányan várnak még az adott órára. */
+/** How many people are still waiting for this class. */
 export const countWaiting = async (payload: Payload, sessionId: number): Promise<number> =>
   (await payload.find({
     collection: 'waitlist-entries',
@@ -338,17 +340,16 @@ export const countWaiting = async (payload: Payload, sessionId: number): Promise
   })).totalDocs
 
 /**
- * Lusta ütemező: oldalbetöltéskor fut, de legfeljebb percenként egyszer.
+ * Lazy scheduler: runs on page load, but at most once a minute.
  *
- * A Vercel ingyenes csomagján a cron **naponta csak egyszer** futhat —
- * egy percenkénti ütemezés már a deploynál elbukna. Egy várólista-ajánlat
- * viszont percekben jár le, úgyhogy a tényleges taktust ez adja: aki
- * megnyitja az órarendet, az egyben le is pörgeti a kört. A napi cron
- * mellette biztonsági háló marad arra az esetre, ha senki nem jár az
- * oldalon.
+ * On Vercel's free plan a cron job may run **only once a day** — a
+ * per-minute schedule is rejected at deploy time. A waitlist offer,
+ * however, expires in minutes, so this is what provides the real beat:
+ * whoever opens the schedule also turns the crank. The daily cron stays
+ * alongside it as a safety net for when nobody visits the site.
  *
- * Az utolsó futás ideje a BookingSettings globalban van, nem memóriában,
- * mert a szerverless példányok nem osztoznak a memórián.
+ * The time of the last run lives in the BookingSettings global, not in
+ * memory, because serverless instances do not share memory.
  */
 export const maybeTick = async (
   payload: Payload,
@@ -362,9 +363,9 @@ export const maybeTick = async (
       return { ran: false }
     }
 
-    // Előbb jelöljük meg, hogy futunk: két egyidejű kérés közül csak az
-    // egyik fusson végig. Nem zár ki minden versenyt, de a kiajánlás
-    // maga is ellenőrzi, hogy van-e már élő ajánlat.
+    // Mark that we are running first, so that of two simultaneous
+    // requests only one goes through. This does not rule out every
+    // race, but offering also checks for a live offer itself.
     await payload.updateGlobal({
       slug: 'booking-settings',
       data: { lastWaitlistTickAt: now.toISOString() },
@@ -373,7 +374,7 @@ export const maybeTick = async (
     const r = await runWaitlistTick(payload, now)
     return { ran: true, ...r }
   } catch {
-    // Az órarend megjelenítését soha ne akassza meg az ütemező.
+    // The scheduler must never hold up rendering the schedule.
     return { ran: false }
   }
 }

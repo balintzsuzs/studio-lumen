@@ -8,29 +8,29 @@ export type NavUser = {
 } | null
 
 /**
- * A marketing oldal és a foglalórendszer közös navigációja.
+ * Navigation shared by the marketing site and the booking system.
  *
- * A statikus oldalon ez egy `<script>` volt, ami egy osztályt kapcsolt.
- * Itt kliens komponens, mert a mobil menü nyitott állapota és a belépett
- * felhasználó neve is ide tartozik — így Nadine egy helyen látja, hogy
- * a weboldal és a foglalás ugyanaz a rendszer.
+ * On the static site this was a `<script>` that toggled a class. Here
+ * it is a client component, because the mobile menu's open state and
+ * the signed-in user's name belong here too — so that in one place you
+ * can see the website and the booking are the same system.
  *
- * A `DE | EN` váltó a statikus oldalról jön vissza: ugyanaz a jelölés
- * (`<span class="lang">`), hogy a `site.css` változtatás nélkül
- * működjön. A váltó a MÁSIK nyelv megfelelő lapjára visz — az aloldal
- * a saját párjára, nem a nyitólapra —, az aktuális nyelv pedig nem
- * hivatkozás, hanem `aria-current`-tel jelölt szöveg.
+ * The `DE | EN` switch comes back from the static site: the same
+ * markup (`<span class="lang">`) so `site.css` works unchanged. The
+ * switch leads to the OTHER language's matching page — a subpage to
+ * its own counterpart, not to the home page — and the current language
+ * is not a link but text marked with `aria-current`.
  */
 type Lang = 'de' | 'en'
 
-/** Melyik lapon állunk, és mi a párja a másik nyelven. */
+/** Which page we are on, and its counterpart in the other language. */
 export type Oldal = 'index' | 'demo'
 
 const PAR: Record<Oldal, Record<Lang, string>> = {
   index: { de: '/', en: '/en' },
-  // A demó-útmutató csak angolul létezik. A horgonyok innen a nyitólapra
-  // mutatnak, a nyelvváltó pedig elrejtve marad — különben mindkettő
-  // zsákutca lenne.
+  // The demo guide exists only in English. Its anchors point to the
+  // home page, and the language switch stays hidden — otherwise both
+  // would be dead ends.
   demo: { de: '/demo', en: '/demo' },
 }
 
@@ -58,9 +58,10 @@ export default function SiteNav({
 }: {
   nyelvvalto?: boolean
   /**
-   * Minden menüpont új fülön nyíljon. A demó-útmutatón kell: onnan
-   * bármire kattint, az útmutató maradjon meg mellette. A rendes
-   * weboldalon ez zavaró lenne, ezért alapból ki van kapcsolva.
+   * Open every menu item in a new tab. Needed on the demo guide:
+   * whatever the reader clicks, the guide should stay open beside it.
+   * On the ordinary website this would be irritating, so it is off by
+   * default.
    */
   ujLapon?: boolean
   user: NavUser
@@ -70,10 +71,10 @@ export default function SiteNav({
   const [open, setOpen] = useState(false)
   const s = SZOVEG[lang]
 
-  /** Új fül, ha a lap úgy kérte. A lapon belüli horgony sosem. */
+  /** A new tab, if the page asked for it. Never for an on-page anchor. */
   const ujFul = ujLapon ? { target: '_blank', rel: 'noopener' } : {}
 
-  // Az aloldalon a horgonyok a nyitólapra mutatnak, a saját nyelvén.
+  // On a subpage the anchors point at the home page, in its own language.
   const haza = PAR[oldal][lang] === PAR.index[lang] ? '' : PAR.index[lang]
   const horgony = (id: string) => `${haza}#${id}`
 

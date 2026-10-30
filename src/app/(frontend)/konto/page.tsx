@@ -133,9 +133,9 @@ export default async function Konto({
                   <strong>{dayLabel(b.session?.startsAt, lang)}, {timeLabel(b.session?.startsAt, lang)}</strong>
                   <span className="muted">
                     {b.session?.classType?.name} · {b.session?.studio?.city} ·{' '}
-                    {/* A nyers állapotnév angolul van az adatbázisban
-                        („attended"), a vendég viszont a saját nyelvén
-                        olvassa a lapot. Lefordítjuk. */}
+                    {/* The raw status name is English in the database
+                        ("attended"), but the customer reads the page in
+                        their own language. So we translate it. */}
                     {b.status === 'cancelled'
                       ? (b.creditRefunded ? t('konto.storno_gut') : t('konto.storno_verfallen'))
                       : ALLAPOT_KULCS[b.status]

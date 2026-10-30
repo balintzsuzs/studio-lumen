@@ -5,13 +5,14 @@ import config from '@payload-config'
 import type { Payload } from 'payload'
 
 /**
- * A foglalás üzleti logikája, az AGB szabályaival:
+ * The business logic of booking, with the studio's rules:
  *
- *  - lemondás legalább 24 órával előtte, különben a kredit elvész
+ *  - cancel at least 24 hours ahead, otherwise the credit is forfeited
  *    ("Lektionen müssen mindestens 24 Stunden vor Beginn abgesagt werden")
- *  - minimum 2 fő; ha a stúdió mond le, a kredit visszajár
- *  - zárva tartási időszakban nincs óra
- *  - abo kredit és lejárat ellenőrzése
+ *  - a minimum of 2 participants; if the studio cancels, the credit
+ *    always comes back
+ *  - no classes during a closure period
+ *  - pass credits and expiry are checked
  */
 
 export type Availability = {
@@ -25,9 +26,9 @@ export type Availability = {
 export type WaitlistWindow = { fromHoursBefore: number; offerMinutes: number }
 
 /**
- * Lépcsőzetes várólista-ablak, ha a beállításban még nincs megadva.
- * Minél közelebb az óra, annál rövidebb a válaszadási idő — különben
- * a felszabadult hely kihasználatlanul marad.
+ * The sliding waitlist window, for when the setting is not configured
+ * yet. The closer the class, the shorter the time to respond —
+ * otherwise a freed-up spot simply goes unused.
  */
 export const DEFAULT_WAITLIST_WINDOWS: WaitlistWindow[] = [
   { fromHoursBefore: 48, offerMinutes: 720 },
@@ -37,7 +38,7 @@ export const DEFAULT_WAITLIST_WINDOWS: WaitlistWindow[] = [
 
 export const getClient = async (): Promise<Payload> => getPayload({ config })
 
-/** Beállítások (lemondási határidő stb.), alapértékekkel. */
+/** Settings (cancellation deadline and so on), with defaults. */
 export const getSettings = async (payload: Payload) => {
   const s = await payload.findGlobal({ slug: 'booking-settings' })
   return {
@@ -51,7 +52,7 @@ export const getSettings = async (payload: Payload) => {
   }
 }
 
-/** findByID, de hiányzó rekordnál null-t ad vissza kivétel helyett. */
+/** findByID, but returns null for a missing record instead of throwing. */
 const findOrNull = async (payload: Payload, collection: any, id: number) => {
   try {
     return await payload.findByID({ collection, id, depth: 0 })
@@ -63,7 +64,7 @@ const findOrNull = async (payload: Payload, collection: any, id: number) => {
 const idOf = (v: unknown): number =>
   typeof v === 'object' && v !== null ? (v as { id: number }).id : (v as number)
 
-/** Zárva tartás alá esik-e az adott óra? */
+/** Does this class fall inside a closure period? */
 export const isClosed = async (payload: Payload, session: any): Promise<string | null> => {
   const start = new Date(session.startsAt)
   const periods = await payload.find({
@@ -88,7 +89,7 @@ export const isClosed = async (payload: Payload, session: any): Promise<string |
   return null
 }
 
-/** Melyik gép szabad ezen az órán. */
+/** Which machines are free in this class. */
 export const getAvailability = async (
   payload: Payload,
   sessionId: number,
@@ -130,7 +131,7 @@ export const getAvailability = async (
     .sort((a, b) => a.row - b.row || a.column - b.column)
 }
 
-/** Az ügyfél használható abo-ja: lejárat és kredit szerint, a leghamarabb lejáró előbb. */
+/** The customer's usable pass: by expiry and credits, soonest to expire first. */
 export const findUsableAbo = async (payload: Payload, userId: number) => {
   const now = new Date().toISOString()
   const abos = await payload.find({
@@ -169,7 +170,7 @@ export const createBooking = async (
   const closure = await isClosed(payload, session)
   if (closure) return { ok: false, reason: 'hiba.zarva' }
 
-  // már foglalt-e ugyanerre az órára
+  // has this person already booked this class
   const own = await payload.find({
     collection: 'bookings',
     where: {
@@ -197,7 +198,7 @@ export const createBooking = async (
     chosen = free[0].reformerId
   }
 
-  // kredit levonás + foglalás egy tranzakcióban
+  // deducting the credit and creating the booking in one transaction
   const tx = await payload.db.beginTransaction?.()
   const req = tx ? ({ transactionID: tx } as any) : undefined
   try {
@@ -282,14 +283,15 @@ export const cancelBooking = async (
 export type Teltseg = { foglalt: number; fero: number; szabad: number }
 
 /**
- * Több óra telítettsége egyetlen körben.
+ * How full several classes are, in one pass.
  *
- * A `getAvailability` óránként kérdez, ami egy havi naptárnál hatvan
- * külön lekérdezést jelentene. Ez összesen kettőt futtat: a gépeket
- * stúdiónként, a foglalásokat pedig egyszerre az összes órára.
+ * `getAvailability` asks per class, which for a month view would mean
+ * sixty separate queries. This runs two in total: machines per studio,
+ * and bookings for all the classes at once.
  *
- * A férőhely az aktív gépek száma — egy karbantartásba tett gép
- * automatikusan csökkenti, ahogy a foglalásnál is.
+ * Capacity is the number of active machines — a machine put into
+ * maintenance reduces it automatically, exactly as it does at booking
+ * time.
  */
 export const getTeltseg = async (
   payload: Payload,

@@ -2,31 +2,32 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 
 /**
- * Az oktatók felvétele: 60 perces órák, nyelvek, és az órák elosztása.
+ * Setting up the instructors: 60-minute classes, languages, and sharing
+ * the classes out between them.
  *
- * A csapat ugyanaz a négy ember, mint a weboldal Über uns szakaszán —
- * különben a vendég olyan oktatót látna az órarendben, aki a honlapon
- * nem létezik.
+ * The team is the same four people as in the website's Über uns
+ * section — otherwise a visitor would see an instructor in the schedule
+ * who does not exist on the site.
  *
- * A `teachingLanguages` azt mondja meg, milyen nyelven tart órát, és ez
- * a VENDÉGNEK szól. A saját felületének nyelve külön mező (`language`),
- * és mindenkinél német — a kettő összekeverése miatt jött fel egyszer
- * a stúdió nézet angolul.
+ * `teachingLanguages` says which language they teach in, and that is
+ * for the CUSTOMER. The language of their own screen is a separate
+ * field (`language`), German for everyone — confusing the two is what
+ * once made the studio view come up in English.
  *
- * Az órák elosztása **demó-adat**: a valódi beosztást a stúdió állítja
- * be az adminban.
+ * Sharing out the classes is **demo data**: the real timetable is set
+ * by the studio in the admin.
  *
  *   curl -X POST http://localhost:3000/setup/teachers \
  *     -H 'content-type: application/json' -d '{"password":"..."}'
  *
- * Újrafuttatható.
+ * Re-runnable.
  */
 
 const TEAM = [
   { firstName: 'Nadine', lastName: 'Hofer', languages: ['de', 'en'] },
   { firstName: 'Aline', lastName: 'Keller', languages: ['de', 'en'] },
   { firstName: 'Jana', lastName: 'Brunner', languages: ['de', 'en'] },
-  // Elin angolul tart órát — enélkül a demóban nem lenne angol óra.
+  // Elin teaches in English — without her there would be no English class in the demo.
   { firstName: 'Elin', lastName: 'Vogt', languages: ['en'] },
 ]
 
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
   try {
     const payload = await getPayload({ config })
 
-    // --- 1. minden óra 60 perces ---
+    // --- 1. every class is 60 minutes ---
     const sessions = await payload.find({ collection: 'sessions', limit: 1000, depth: 0 })
     let retimed = 0
     for (const s of sessions.docs as any[]) {
@@ -59,7 +60,7 @@ export async function POST(request: Request) {
       retimed++
     }
 
-    // --- 2. az óratípus alapértéke is ---
+    // --- 2. and the class type's default too ---
     const types = await payload.find({ collection: 'class-types', limit: 50, depth: 0 })
     for (const t of types.docs as any[]) {
       if (t.usesReformers && t.defaultDuration !== 60) {
@@ -69,22 +70,25 @@ export async function POST(request: Request) {
       }
     }
 
-    // --- 3. az oktatók ---
+    // --- 3. the instructors ---
     const instructors: any[] = []
     for (const t of TEAM) {
-      // Külön tartomány, mint a demó-ügyfeleké (@demo.studio-lumen.ch):
-      // különben a tulajdonosnak szánt ügyfélfiók címe ütközne az övével,
-      // és a fiók oktatóvá alakulna.
+      // A separate domain, as for the demo customers
+      // (@demo.studio-lumen.ch): otherwise the demo customer account's
+      // address would collide with hers and the account would turn
+      // into an instructor.
       const email = `${t.firstName.toLowerCase()}@team.studio-lumen.ch`
-      // Előbb e-mail szerint, aztán név szerint — különben egy már
-      // felvett oktatóból (más e-mail-címmel) duplikátum keletkezne.
+      // By email first, then by name — otherwise an instructor who is
+      // already on file (under a different address) would be
+      // duplicated.
       const byEmail = await payload.find({
         collection: 'users', where: { email: { equals: email } }, limit: 1, depth: 0,
       })
       let u: any = (byEmail.docs as any[])[0]
       if (!u) {
-        // Csak oktatót vagy admint veszünk át név alapján — egy
-        // ügyfelet soha nem alakítunk oktatóvá a neve miatt.
+        // Only an instructor or an admin is matched by name — we
+        // never turn a customer into an instructor because of their
+        // name.
         const byName = await payload.find({
           collection: 'users',
           where: {
@@ -99,16 +103,16 @@ export async function POST(request: Request) {
         u = (byName.docs as any[])[0]
       }
       /*
-       * A felület nyelve: németül. Hogy angolul IS tart órát, az a
-       * vendégnek szól (`teachingLanguages`), nem a saját képernyőjének.
-       * A kettő összekeverése miatt jött fel egyszer a stúdió nézet
-       * angolul.
+       * Their interface language: German. That they ALSO teach in
+       * English is for the customer (`teachingLanguages`), not for
+       * their own screen. Confusing the two is what once made the
+       * studio view come up in English.
        *
-       * A szerepet csak akkor írjuk át, ha nem admin. A tulajdonos
-       * oktatói fiókja admin jogú, és ez az útvonal újrafuttatható —
-       * ha mindenkire `instructor`-t írna, egy ártatlan újrafuttatás
-       * elvenné tőle a jogot, csendben. Épp azt, ami nélkül nem tud
-       * órát felvenni.
+       * The role is only rewritten when it is not already admin. The
+       * owner's instructor account is an admin, and this route is
+       * re-runnable — if it wrote `instructor` over everyone, an
+       * innocent re-run would take that away from her, silently.
+       * Exactly the thing without which she cannot create a class.
        */
       if (u) {
         await payload.update({
@@ -132,7 +136,7 @@ export async function POST(request: Request) {
       )
     }
 
-    // --- 4. az órák elosztása, hogy a demóban legyen DE és EN is ---
+    // --- 4. share out the classes, so the demo has both DE and EN ---
     const all = instructors.filter(Boolean)
     const upcoming = await payload.find({
       collection: 'sessions', sort: 'startsAt', limit: 1000, depth: 0,

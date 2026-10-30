@@ -3,15 +3,14 @@ import type { HibaKulcs } from './i18n'
 import type { Payload } from 'payload'
 
 /**
- * Jelenlét: a késői lemondás és a meg nem jelenés két külön tény.
+ * Attendance: a late cancellation and a no-show are two separate facts.
  *
- *  - késői lemondás: az ügyfél szólt, de a 24 órás határon belül
- *    (`cancellationType = 'late'`, a kredit elveszik)
- *  - no-show: nem szólt és nem jött el (`status = 'no_show'`)
+ *  - late cancellation: the customer did tell us, but inside the 24-hour
+ *    window (`cancellationType = 'late'`, the credit is forfeited)
+ *  - no-show: never told us and never turned up (`status = 'no_show'`)
  *
- * A no-show-t az óra után lehet rögzíteni; a `closeSession` az összes
- * még nyitott foglalást no-show-ra állítja, az oktató pedig egyenként
- * jelenlétre javíthatja.
+ * A no-show is recorded after the class. See `closeSession` below for
+ * which way round the marking works, and why.
  */
 
 export type Attendance = 'attended' | 'no_show'
@@ -39,22 +38,23 @@ export const markAttendance = async (
 }
 
 /**
- * Az óra lezárása: minden még nyitott foglalás MEGJELENTRE áll.
+ * Closing a class: every still-open booking is set to ATTENDED.
  *
- * Ez a rendszer egyik legfontosabb munkaszabálya, ezért megérdemel egy
- * bekezdést. Korábban fordítva működött: a lezárás mindenkit no-show-ra
- * állított, és az oktatónak egyenként kellett visszajavítania azokat,
- * akik ott voltak. Csakhogy a normális eset az, hogy a bejelentkezett
- * ember eljön — öt helyből jó, ha havonta egyszer marad üresen egy.
- * Az oktató tehát öt kattintást végzett azért, hogy nullát rögzítsen.
+ * This is one of the most important working rules in the system, so it
+ * gets a paragraph. It used to work the other way round: closing marked
+ * everyone as a no-show, and the instructor had to correct each person
+ * who had actually been there. But the normal case is that someone who
+ * booked turns up — out of five spots, one goes empty maybe once a
+ * month. So the instructor was making five clicks to record nothing.
  *
- * Innentől az oktató dolga csak annyi, hogy a HIÁNYZÓT megjelölje.
- * Aki nincs megjelölve, az megjelent. Ez kevesebb munka és kevesebb
- * hiba: egy elfelejtett kattintás most nem bélyegez meg valakit
- * jogtalanul no-show-val.
+ * From here on the instructor's only job is to mark who was ABSENT.
+ * Anyone not marked was there. That is less work and fewer mistakes:
+ * a forgotten click no longer brands someone with an undeserved
+ * no-show.
  *
- * Csak már elkezdődött óránál fut le. Újrafuttatható: a már felvett
- * jelenlétet (`attended` vagy `no_show`) nem írja felül.
+ * Only runs on a class that has already started. Re-runnable: it does
+ * not overwrite attendance that was already recorded (`attended` or
+ * `no_show`).
  */
 export const closeSession = async (
   payload: Payload,
@@ -85,21 +85,21 @@ export const closeSession = async (
 }
 
 /**
- * Mennyi idő után zárja le magát egy lement óra.
+ * How long a finished class waits before closing itself.
  *
- * Az oktatónak kell egy ablak, amin belül bejelöli, ki hiányzott. Ha
- * rögtön óra után zárnánk, a hiányzó is megjelentként maradna; ha soha
- * nem zárnánk, a profilokon örökre „gebucht" állna. Másnap reggelre
- * mindenképp rendeződjön.
+ * The instructor needs a window in which to mark who was missing. Close
+ * it immediately after the class and the absentees would stay recorded
+ * as present; never close it and profiles would read "gebucht" forever.
+ * By the next morning it should be settled either way.
  */
 export const AUTO_CLOSE_HOURS = 12
 
 /**
- * A régen lement, még nyitott órák lezárása.
+ * Closes classes that finished long ago and are still open.
  *
- * Azért kell, mert az oktató nem fog emlékezni rá, hogy lezárjon egy
- * órát, amin semmi rendkívüli nem történt — és nem is kellene. Ha nem
- * nyúlt hozzá, az azt jelenti: mindenki ott volt.
+ * Needed because an instructor will not remember to close a class where
+ * nothing out of the ordinary happened — and should not have to. If
+ * nobody touched it, that means everybody was there.
  */
 export const closeStaleSessions = async (
   payload: Payload,
@@ -137,7 +137,7 @@ export type Reliability = {
   inTimeCancels: number
 }
 
-/** Egy ügyfél megjelenési statisztikája, opcionálisan egy dátum óta. */
+/** A customer's attendance record, optionally only since a given date. */
 export const getReliability = async (
   payload: Payload,
   userId: number,

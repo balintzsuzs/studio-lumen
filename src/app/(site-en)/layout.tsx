@@ -2,11 +2,12 @@ import type { Metadata } from 'next'
 import '../site.css'
 
 /**
- * Az angol marketing oldal gyökér-layoutja.
+ * The root layout of the English marketing site.
  *
- * Azért külön route group és külön layout, mert a `<html lang>` csak
- * gyökér-layoutban adható meg, a német oldalé pedig `de`. A stíluslap
- * ugyanaz a `site.css` — a design bájtra azonos, csak a szöveg más.
+ * It is a separate route group and layout because `<html lang>` can
+ * only be set in a root layout, and the German site's is `de`. The
+ * stylesheet is the same `site.css` — the design is byte-identical,
+ * only the text differs.
  */
 export const metadata: Metadata = {
   title: 'STUDIO LUMEN | Movement & integrative health, Zürich & Zug',

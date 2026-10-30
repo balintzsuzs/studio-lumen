@@ -1,15 +1,15 @@
 import type { CollectionConfig } from 'payload'
 
 /**
- * Minden belépő ember: ügyfél, oktató, admin.
- * A szerep dönti el, mit lát és mit szerkeszthet.
+ * Everyone who signs in: customer, instructor, admin.
+ * The role decides what they see and what they may edit.
  */
 export const Users: CollectionConfig = {
   slug: 'users',
   auth: {
-    // jelszavas belépés + e-mail linkes belépés is (magic link a bejelentkezési
-    // oldalon generált token alapján)
-    tokenExpiration: 60 * 60 * 24 * 30, // 30 nap
+    // password sign-in plus email-link sign-in (a magic link based on a
+    // token generated on the sign-in page)
+    tokenExpiration: 60 * 60 * 24 * 30, // 30 days
     verify: false,
   },
   admin: {
@@ -18,7 +18,7 @@ export const Users: CollectionConfig = {
     group: 'Personen',
   },
   access: {
-    // admin mindent lát, mindenki más csak magát
+    // an admin sees everything, everyone else only themselves
     read: ({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'admin') return true
@@ -35,9 +35,9 @@ export const Users: CollectionConfig = {
   hooks: {
     beforeChange: [
       ({ data }) => {
-        // A megjelenítendő név. Azért tárolt mező és nem számított,
-        // mert a Payload kapcsolat-választói és listái ezt kérik le —
-        // e-mail-cím helyett így a nevek látszanak mindenhol.
+        // The display name. A stored field rather than a computed one,
+        // because Payload's relationship pickers and lists read it —
+        // so names show up everywhere instead of email addresses.
         const full = [data?.firstName, data?.lastName].filter(Boolean).join(' ').trim()
         if (full) data.fullName = full
         return data
@@ -66,7 +66,7 @@ export const Users: CollectionConfig = {
         { label: 'Administration', value: 'admin' },
       ],
       access: {
-        // a szerepet csak admin írhatja, különben bárki adminná tenné magát
+        // only an admin may write the role, else anyone could promote themselves
         update: ({ req: { user } }) => user?.role === 'admin',
       },
     },
@@ -80,10 +80,11 @@ export const Users: CollectionConfig = {
     },
     {
       /*
-       * Egészségügyi megjegyzés: sérülés, műtét, terhesség, bármi, amit az
-       * oktatónak tudnia kell óra előtt. Érzékeny adat, ezért mezőszinten
-       * korlátozott: az ügyfél a sajátját látja, rajta kívül csak az
-       * oktatók és az admin. A lista-nézetből kimarad.
+       * Health note: an injury, an operation, a pregnancy, anything the
+       * instructor needs to know before the class. Sensitive data, so
+       * it is restricted at field level: customers see their own, and
+       * beyond them only instructors and admins. It is kept out of the
+       * list view.
        */
       name: 'healthNotes',
       type: 'textarea',
@@ -112,10 +113,10 @@ export const Users: CollectionConfig = {
     },
     {
       /*
-       * Milyen nyelven tartja az órát. Ez az oktató tulajdonsága, mert a
-       * gyakorlatban az dönti el, ki vezeti az órát: Elin angolul,
-       * Nadine, Jana és Aline németül és angolul is. Az egyes órák
-       * ettől eltérhetnek, lásd a `sessions.languages` mezőt.
+       * Which language they teach in. This belongs to the instructor,
+       * because in practice it decides who leads a class: Elin teaches
+       * in English, Nadine, Jana and Aline in both German and English.
+       * Individual classes may differ — see `sessions.languages`.
        */
       name: 'teachingLanguages',
       type: 'select',
