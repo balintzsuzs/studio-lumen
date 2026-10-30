@@ -3,7 +3,7 @@ import { headers } from 'next/headers'
 import '../globals.css'
 import { getCurrentUser } from '@/lib/auth'
 import { getLang } from '@/lib/lang'
-import { UTVONAL_FEJLEC } from '@/middleware'
+import { PATH_HEADER } from '@/middleware'
 import LangSwitch from './components/LangSwitch'
 
 export const metadata: Metadata = {
@@ -23,13 +23,13 @@ export default async function FrontendLayout({ children }: { children: React.Rea
   const user = await getCurrentUser()
   const lang = await getLang(user)
   const h = await headers()
-  const utvonal = h.get(UTVONAL_FEJLEC) ?? '/buchen'
+  const path = h.get(PATH_HEADER) ?? '/buchen'
 
   return (
     <html lang={lang}>
       <body>
         <div className="topbar">
-          <LangSwitch lang={lang} next={utvonal} />
+          <LangSwitch lang={lang} next={path} />
         </div>
         {children}
       </body>

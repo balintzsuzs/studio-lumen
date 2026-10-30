@@ -11,8 +11,8 @@ import {
 import {
   markAttendance, closeSession, getReliability, closeStaleSessions, AUTO_CLOSE_HOURS,
 } from './attendance'
-import { createSession, deleteSession } from './ora'
-import { kundeProfil, kundeLista } from './kunde'
+import { createSession, deleteSession } from './lesson'
+import { customerProfile, customerList } from './customer'
 import { cancelSessionByStudio, cancelForTooFewParticipants } from './studio'
 import { sessionLanguages, languageLabel } from './format'
 import {
@@ -21,10 +21,10 @@ import {
 } from './abo'
 import { generateSessions, propagateToFutureSessions, zoneToUtc } from './series'
 import {
-  napKulcs, napKulcsVagyMa, napPlusz, hetNapja, hetKezdete, honapKezdete,
-  honapHossza, naptarNapjai, naptarHatarok, naptarLepes, azonosHonap, naptarMod,
-  naptarLekerdezes,
-} from './naptar'
+  dayKey, dayKeyOrToday, addDays, dayOfWeek, weekStart, monthStart,
+  monthLength, calendarDays, calendarBounds, calendarStep, sameMonth, calendarView,
+  calendarQuery,
+} from './calendar'
 
 /**
  * The test suite for the booking rules.
@@ -45,7 +45,7 @@ const why = (r: unknown): string => {
   return o && o.ok === false && o.reason ? o.reason : ''
 }
 
-const q = async (fn: () => Promise<unknown>) => { try { await fn() } catch { /* takarítás */ } }
+const q = async (fn: () => Promise<unknown>) => { try { await fn() } catch { /* clean-up */ } }
 
 /**
  * Clean-up deletes only the suite's own data.
@@ -58,12 +58,12 @@ const q = async (fn: () => Promise<unknown>) => { try { await fn() } catch { /* 
  * test class (`note = 'TEST'`), or marked by the test itself (`note`).
  */
 export const reset = async (payload: Payload) => {
-  const idk = (docs: unknown[]) => (docs as { id: number }[]).map((d) => d.id)
+  const idsOf = (docs: unknown[]) => (docs as { id: number }[]).map((d) => d.id)
 
   const users = await payload.find({
     collection: 'users', where: { email: { like: TEST_DOMAIN } }, limit: 500, depth: 0,
   })
-  const userIds = idk(users.docs)
+  const userIds = idsOf(users.docs)
 
   // The test series and the classes generated from them, plus standalone test classes.
   const series = await payload.find({
@@ -74,32 +74,32 @@ export const reset = async (payload: Payload) => {
     const kids = await payload.find({
       collection: 'sessions', where: { series: { equals: sr.id } }, limit: 500, depth: 0,
     })
-    for (const id of idk(kids.docs)) sessionIds.add(id)
+    for (const id of idsOf(kids.docs)) sessionIds.add(id)
   }
-  const sajat = await payload.find({
+  const own = await payload.find({
     collection: 'sessions', where: { note: { equals: TEST_NOTE } }, limit: 500, depth: 0,
   })
-  for (const id of idk(sajat.docs)) sessionIds.add(id)
+  for (const id of idsOf(own.docs)) sessionIds.add(id)
 
   /** Test data if it belongs to a test user OR to a test class. */
-  const takarit = async (
+  const cleanUp = async (
     c: 'notifications' | 'bookings' | 'waitlist-entries' | 'abos',
-    birtokos: 'customer' | 'recipient',
-    oraMezo: 'session' | null,
+    possessive: 'customer' | 'recipient',
+    lessonField: 'session' | null,
   ) => {
     const or: Where[] = []
-    if (userIds.length) or.push({ [birtokos]: { in: userIds } })
-    if (oraMezo && sessionIds.size) or.push({ [oraMezo]: { in: [...sessionIds] } })
+    if (userIds.length) or.push({ [possessive]: { in: userIds } })
+    if (lessonField && sessionIds.size) or.push({ [lessonField]: { in: [...sessionIds] } })
     if (!or.length) return
     const all = await payload.find({ collection: c, where: { or }, limit: 500, depth: 0 })
-    for (const id of idk(all.docs)) await q(() => payload.delete({ collection: c, id }))
+    for (const id of idsOf(all.docs)) await q(() => payload.delete({ collection: c, id }))
   }
 
   // Order matters: whatever holds the reference goes first.
-  await takarit('notifications', 'recipient', 'session')
-  await takarit('bookings', 'customer', 'session')
-  await takarit('waitlist-entries', 'customer', 'session')
-  await takarit('abos', 'customer', null)
+  await cleanUp('notifications', 'recipient', 'session')
+  await cleanUp('bookings', 'customer', 'session')
+  await cleanUp('waitlist-entries', 'customer', 'session')
+  await cleanUp('abos', 'customer', null)
 
   // Closures: the tests delete these themselves at the end, so these
   // only survive an interrupted run — which is why they mark
@@ -107,7 +107,7 @@ export const reset = async (payload: Payload) => {
   const closures = await payload.find({
     collection: 'closure-periods', where: { note: { equals: TEST_NOTE } }, limit: 500, depth: 0,
   })
-  for (const id of idk(closures.docs)) {
+  for (const id of idsOf(closures.docs)) {
     await q(() => payload.delete({ collection: 'closure-periods', id }))
   }
 
@@ -238,7 +238,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
   /** A failure in one block must not stop the rest; it shows up as a failed case. */
   const section = async (label: string, fn: () => Promise<void>) => {
     try { await fn() } catch (e) {
-      add(`${label}: unerwarteter Fehler`, false, String(e).slice(0, 120))
+      add(`${label}: unexpected error`, false, String(e).slice(0, 120))
     }
   }
 
@@ -251,10 +251,10 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const spots = await getAvailability(payload, s.id)
     const target = spots.find((x) => x.status === 'free')!
     const r = await createBooking(payload, u.id, s.id, target.reformerId)
-    add('Buchung mit gewähltem Gerät', r.ok)
-    add('Guthaben um 1 reduziert', (await credits(c, a.id)) === 4, `${await credits(c, a.id)}`)
+    add('Booking with a chosen reformer', r.ok)
+    add('Credits reduced by 1', (await credits(c, a.id)) === 4, `${await credits(c, a.id)}`)
     const after = await getAvailability(payload, s.id)
-    add('Gewähltes Gerät gilt als belegt',
+    add('The chosen reformer counts as taken',
       after.find((x) => x.reformerId === target.reformerId)?.status === 'taken')
   })
 
@@ -262,11 +262,11 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c)
     const r = await createBooking(payload, u.id, s.id)
-    add('Buchung ohne Gerätewahl wird automatisch zugeteilt', r.ok)
+    add('A booking without a choice is assigned automatically', r.ok)
     if (r.ok) {
       const b: any = await payload.findByID({ collection: 'bookings', id: r.bookingId, depth: 0 })
-      add('Automatische Zuteilung setzt ein Gerät', Boolean(b.reformer))
-    } else add('Automatische Zuteilung setzt ein Gerät', false)
+      add('The automatic assignment sets a reformer', Boolean(b.reformer))
+    } else add('The automatic assignment sets a reformer', false)
   })
 
   await section("the same customer twice", async () => {
@@ -274,7 +274,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const s = await mkSession(c)
     await createBooking(payload, u.id, s.id)
     const r = await createBooking(payload, u.id, s.id)
-    add('Gleiche Kundin kann nicht zweimal buchen', !r.ok, why(r))
+    add('The same customer cannot book twice', !r.ok, why(r))
   })
 
   await section("another customer, machine already taken", async () => {
@@ -285,11 +285,11 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const t = spots.find((x) => x.status === 'free')!
     await createBooking(payload, u1.id, s.id, t.reformerId)
     const r = await createBooking(payload, u2.id, s.id, t.reformerId)
-    add('Belegtes Gerät ist für andere gesperrt', !r.ok, why(r))
-    add('Guthaben der abgewiesenen Kundin unverändert', (await credits(c, a2.id)) === 5)
+    add('A taken reformer is blocked for everyone else', !r.ok, why(r))
+    add('The refused customer keeps her credits', (await credits(c, a2.id)) === 5)
   })
 
-  await section("terem megtelik", async () => {
+  await section("the room fills up", async () => {
     const s = await mkSession(c, { studio: c.studioB }) // Zug, 4 machines
     const total = (await getAvailability(payload, s.id)).length
     for (let i = 0; i < total; i++) {
@@ -297,36 +297,36 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       await createBooking(payload, u.id, s.id)
     }
     const free = (await getAvailability(payload, s.id)).filter((x) => x.status === 'free').length
-    add(`Alle ${total} Plätze belegbar`, free === 0, `${free} frei`)
+    add(`All ${total} spots can be taken`, free === 0, `${free} frei`)
     const u = await mkCustomer(c); const a = await mkAbo(c, u, { credits: 3 })
     const r = await createBooking(payload, u.id, s.id)
-    add('Ausgebuchte Lektion wird abgewiesen', !r.ok, why(r))
-    add('Guthaben bei ausgebuchter Lektion unverändert', (await credits(c, a.id)) === 3)
+    add('A fully booked class is refused', !r.ok, why(r))
+    add('Credits unchanged when the class is full', (await credits(c, a.id)) === 3)
   })
 
   await section("pass states", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u, { credits: 0 })
     const s = await mkSession(c)
     const r = await createBooking(payload, u.id, s.id)
-    add('Abo ohne Guthaben wird abgewiesen', !r.ok, why(r))
+    add('A pass without credits is refused', !r.ok, why(r))
   })
   {
     const u = await mkCustomer(c); await mkAbo(c, u, { credits: 5, months: -1 })
     const s = await mkSession(c)
     const r = await createBooking(payload, u.id, s.id)
-    add('Abgelaufenes Abo wird abgewiesen', !r.ok, why(r))
+    add('An expired pass is refused', !r.ok, why(r))
   }
   {
     const u = await mkCustomer(c); await mkAbo(c, u, { credits: 5, status: 'cancelled' })
     const s = await mkSession(c)
     const r = await createBooking(payload, u.id, s.id)
-    add('Storniertes Abo wird abgewiesen', !r.ok, why(r))
+    add('A cancelled pass is refused', !r.ok, why(r))
   }
   {
     const u = await mkCustomer(c)
     const s = await mkSession(c)
     const r = await createBooking(payload, u.id, s.id)
-    add('Ohne Abo wird abgewiesen', !r.ok, why(r))
+    add('Without a pass it is refused', !r.ok, why(r))
   }
 
   await section("several passes: the one expiring soonest is used first", async () => {
@@ -334,10 +334,10 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const late = await mkAbo(c, u, { credits: 5, months: 10 })
     const soon = await mkAbo(c, u, { credits: 5, months: 2 })
     const picked = await findUsableAbo(payload, u.id)
-    add('Zuerst läuft das früher ablaufende Abo', picked?.id === soon.id)
+    add('The pass that expires sooner is used first', picked?.id === soon.id)
     const s = await mkSession(c)
     await createBooking(payload, u.id, s.id)
-    add('Guthaben vom früher ablaufenden Abo abgezogen',
+    add('The credit comes off the pass expiring sooner',
       (await credits(c, soon.id)) === 4 && (await credits(c, late.id)) === 5)
   })
 
@@ -345,13 +345,13 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c, { status: 'cancelled' })
     const r = await createBooking(payload, u.id, s.id)
-    add('Abgesagte Lektion wird abgewiesen', !r.ok, why(r))
+    add('A cancelled class is refused', !r.ok, why(r))
   })
   {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c, { hours: -2 })
     const r = await createBooking(payload, u.id, s.id)
-    add('Vergangene Lektion wird abgewiesen', !r.ok, why(r))
+    add('A past class is refused', !r.ok, why(r))
   }
 
   await section("wrong studio's machine, maintenance", async () => {
@@ -361,7 +361,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       collection: 'reformers', where: { studio: { equals: c.studioB.id } }, limit: 1, depth: 0,
     })).docs[0] as any
     const r = await createBooking(payload, u.id, s.id, foreign.id)
-    add('Gerät aus dem anderen Studio wird abgewiesen', !r.ok, why(r))
+    add('A reformer from the other studio is refused', !r.ok, why(r))
   })
   {
     const target = (await payload.find({
@@ -370,13 +370,13 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     await payload.update({ collection: 'reformers', id: target.id, data: { status: 'maintenance' } })
     const s = await mkSession(c, { studio: c.studioA })
     const spots = await getAvailability(payload, s.id)
-    add('Gerät in Wartung erscheint als gesperrt',
+    add('A reformer under maintenance shows as blocked',
       spots.find((x) => x.reformerId === target.id)?.status === 'blocked')
     const u = await mkCustomer(c); await mkAbo(c, u)
     const r = await createBooking(payload, u.id, s.id, target.id)
-    add('Gerät in Wartung ist nicht buchbar', !r.ok, why(r))
+    add('A reformer under maintenance cannot be booked', !r.ok, why(r))
     const freeNow = spots.filter((x) => x.status === 'free').length
-    add('Wartung reduziert die Kapazität', freeNow === spots.length - 1, `${freeNow}/${spots.length}`)
+    add('Maintenance reduces the capacity', freeNow === spots.length - 1, `${freeNow}/${spots.length}`)
     await payload.update({ collection: 'reformers', id: target.id, data: { status: 'active' } })
   }
 
@@ -393,7 +393,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
         classTypes: [c.matType.id], note: TEST_NOTE,
       },
     })
-    add('Schliessung für andere Kursart blockiert nicht', (await isClosed(payload, s)) === null)
+    add('A closure for another class type does not block', (await isClosed(payload, s)) === null)
     await payload.delete({ collection: 'closure-periods', id: cp1.id })
 
     // only for the other studio
@@ -404,7 +404,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
         studios: [c.studioB.id], note: TEST_NOTE,
       },
     })
-    add('Schliessung für anderes Studio blockiert nicht', (await isClosed(payload, s)) === null)
+    add('A closure for another studio does not block', (await isClosed(payload, s)) === null)
     await payload.delete({ collection: 'closure-periods', id: cp2.id })
 
     // for this class type
@@ -415,11 +415,11 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
         classTypes: [c.reformerType.id], note: TEST_NOTE,
       },
     })
-    add('Schliessung für diese Kursart blockiert', (await isClosed(payload, s)) !== null)
+    add('A closure for this class type does block', (await isClosed(payload, s)) !== null)
     const u = await mkCustomer(c); const a = await mkAbo(c, u, { credits: 4 })
     const r = await createBooking(payload, u.id, s.id)
-    add('Buchung während Schliessung abgewiesen', !r.ok, why(r))
-    add('Guthaben bei Schliessung unverändert', (await credits(c, a.id)) === 4)
+    add('A booking during a closure is refused', !r.ok, why(r))
+    add('Credits unchanged during a closure', (await credits(c, a.id)) === 4)
     await payload.delete({ collection: 'closure-periods', id: cp3.id })
 
     // applies to everything
@@ -427,9 +427,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       collection: 'closure-periods',
       data: { name: 'Alles zu', startsOn: day, endsOn: day, note: TEST_NOTE },
     })
-    add('Schliessung ohne Einschränkung blockiert alles', (await isClosed(payload, s)) !== null)
+    add('A closure without a restriction blocks everything', (await isClosed(payload, s)) !== null)
     await payload.delete({ collection: 'closure-periods', id: cp4.id })
-    add('Nach Entfernen der Schliessung wieder buchbar', (await isClosed(payload, s)) === null)
+    add('Bookable again once the closure is removed', (await isClosed(payload, s)) === null)
   })
 
   await section("cancellation", async () => {
@@ -437,19 +437,19 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const s = await mkSession(c, { hours: 72 })
     const r = await createBooking(payload, u.id, s.id)
     const res = await cancelBooking(payload, u.id, (r as any).bookingId)
-    add('Stornierung mehr als 24h vorher erstattet', res.ok && res.refunded)
-    add('Guthaben nach Erstattung zurück', (await credits(c, a.id)) === 5)
+    add('Cancelling more than 24h ahead refunds', res.ok && res.refunded)
+    add('The credit is back after the refund', (await credits(c, a.id)) === 5)
     const again = await cancelBooking(payload, u.id, (r as any).bookingId)
-    add('Doppelte Stornierung wird abgewiesen', !again.ok, why(again))
-    add('Doppelte Stornierung erstattet nicht nochmal', (await credits(c, a.id)) === 5)
+    add('A double cancellation is refused', !again.ok, why(again))
+    add('A double cancellation does not refund twice', (await credits(c, a.id)) === 5)
   })
   {
     const u = await mkCustomer(c); const a = await mkAbo(c, u, { credits: 5 })
     const s = await mkSession(c, { hours: 3 })
     const r = await createBooking(payload, u.id, s.id)
     const res = await cancelBooking(payload, u.id, (r as any).bookingId)
-    add('Stornierung innerhalb 24h erstattet nicht', res.ok && !res.refunded)
-    add('Guthaben bleibt abgezogen', (await credits(c, a.id)) === 4)
+    add('Cancelling within 24h does not refund', res.ok && !res.refunded)
+    add('The credit stays deducted', (await credits(c, a.id)) === 4)
   }
   {
     const u1 = await mkCustomer(c); await mkAbo(c, u1)
@@ -457,7 +457,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const s = await mkSession(c)
     const r = await createBooking(payload, u1.id, s.id)
     const res = await cancelBooking(payload, u2.id, (r as any).bookingId)
-    add('Fremde Buchung kann nicht storniert werden', !res.ok, why(res))
+    add('Someone else’s booking cannot be cancelled', !res.ok, why(res))
   }
 
   await section("after a cancellation the spot can be given out again", async () => {
@@ -469,15 +469,15 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const r = await createBooking(payload, u1.id, s.id, t.reformerId)
     await cancelBooking(payload, u1.id, (r as any).bookingId)
     const r2 = await createBooking(payload, u2.id, s.id, t.reformerId)
-    add('Nach Stornierung ist das Gerät wieder frei', r2.ok, why(r2))
+    add('The reformer is free again after a cancellation', r2.ok, why(r2))
   })
 
   await section("non-existent ids", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const r = await createBooking(payload, u.id, 999999)
-    add('Nicht existierende Lektion wird abgewiesen', !r.ok)
+    add('A non-existent class is refused', !r.ok)
     const res = await cancelBooking(payload, u.id, 999999)
-    add('Nicht existierende Buchung wird abgewiesen', !res.ok)
+    add('A non-existent booking is refused', !res.ok)
   })
 
   // ------------------------------------------------ sliding waitlist
@@ -485,18 +485,18 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
   await section("the steps of the offer window", async () => {
     const w = DEFAULT_WAITLIST_WINDOWS
     const at = (h: number) => offerMinutesFor(w, new Date(Date.now() + h * 36e5))
-    add('Mehr als 48h vorher: 12 Stunden Frist', at(72) === 720, `${at(72)}`)
-    add('Genau an der 48h-Stufe: 12 Stunden', at(48) === 720, `${at(48)}`)
-    add('Zwischen 13h und 48h: 4 Stunden', at(20) === 240, `${at(20)}`)
-    add('Unter 13h: nur Minuten', at(5) === 20, `${at(5)}`)
-    add('Frist wird kürzer, je näher die Lektion', at(72) > at(20) && at(20) > at(5))
+    add('More than 48h ahead: a 12-hour window', at(72) === 720, `${at(72)}`)
+    add('Exactly at the 48h step: 12 hours', at(48) === 720, `${at(48)}`)
+    add('Between 13h and 48h: 4 hours', at(20) === 240, `${at(20)}`)
+    add('Under 13h: only minutes', at(5) === 20, `${at(5)}`)
+    add('The window shortens as the class comes closer', at(72) > at(20) && at(20) > at(5))
   })
 
   await section("waitlist only on a full class", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c)
     const r = await joinWaitlist(payload, u.id, s.id)
-    add('Warteliste abgelehnt, solange Plätze frei sind', !r.ok, why(r))
+    add('The waiting list is refused while spots are free', !r.ok, why(r))
   })
 
   await section("joining, ordering, leaving", async () => {
@@ -504,16 +504,16 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     await fillSession(c, s)
     const a = await mkCustomer(c); await mkAbo(c, a)
     const b = await mkCustomer(c); await mkAbo(c, b)
-    const ra: any = await joinWaitlist(payload, a.id, s.id)
+    const joined: any = await joinWaitlist(payload, a.id, s.id)
     const rb: any = await joinWaitlist(payload, b.id, s.id)
-    add('Erste Person auf Warteliste: Position 1', ra.ok && ra.position === 1, why(ra))
-    add('Zweite Person: Position 2', rb.ok && rb.position === 2, why(rb))
+    add('First person on the waiting list: position 1', joined.ok && joined.position === 1, why(joined))
+    add('Second person: position 2', rb.ok && rb.position === 2, why(rb))
     const again = await joinWaitlist(payload, a.id, s.id)
-    add('Doppelte Anmeldung wird abgewiesen', !again.ok, why(again))
-    const left = await leaveWaitlist(payload, a.id, ra.entryId)
-    add('Abmeldung von der Warteliste', left.ok, left.reason)
-    const foreign = await leaveWaitlist(payload, b.id, ra.entryId)
-    add('Fremder Eintrag kann nicht abgemeldet werden', !foreign.ok, foreign.reason)
+    add('Joining twice is refused', !again.ok, why(again))
+    const left = await leaveWaitlist(payload, a.id, joined.entryId)
+    add('Leaving the waiting list', left.ok, left.reason)
+    const foreign = await leaveWaitlist(payload, b.id, joined.entryId)
+    add('Someone else’s entry cannot be withdrawn', !foreign.ok, foreign.reason)
   })
 
   await section("after a cancellation the first in line is offered the spot", async () => {
@@ -525,26 +525,26 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     await joinWaitlist(payload, w2.id, s.id)
 
     const none = await promoteWaitlist(payload, s.id)
-    add('Ohne freien Platz wird nichts angeboten', none.kind === 'nothing', (none as any).reason)
+    add('With no free spot nothing is offered', none.kind === 'nothing', (none as any).reason)
 
     await cancelBooking(payload, booked[0].userId, booked[0].bookingId)
     const p = await promoteWaitlist(payload, s.id)
-    add('Platz wird der ersten Person angeboten',
+    add('The spot is offered to the first person',
       p.kind === 'offered' && (p as any).offer.customerId === w1.id)
-    add('Angebotsfrist bei 72h: 12 Stunden',
+    add('Offer window at 72h: 12 hours',
       p.kind === 'offered' && (p as any).offer.offerMinutes === 720)
 
     const twice = await promoteWaitlist(payload, s.id)
-    add('Kein zweites Angebot, solange eines läuft', twice.kind === 'nothing', (twice as any).reason)
+    add('No second offer while one is running', twice.kind === 'nothing', (twice as any).reason)
 
     const wrong = await claimOffer(payload, w2.id, (p as any).offer.entryId)
-    add('Nur die angebotene Person kann den Platz holen', !wrong.ok, why(wrong))
+    add('Only the person offered the spot can take it', !wrong.ok, why(wrong))
     const got = await claimOffer(payload, w1.id, (p as any).offer.entryId)
-    add('Angebot kann eingelöst werden', got.ok, why(got))
+    add('The offer can be claimed', got.ok, why(got))
     const entry: any = await payload.findByID({
       collection: 'waitlist-entries', id: e1.entryId, depth: 0,
     })
-    add('Eingelöster Eintrag gilt als gebucht', entry.status === 'converted', entry.status)
+    add('A claimed entry counts as booked', entry.status === 'converted', entry.status)
   })
 
   await section("an expired offer passes to the next person", async () => {
@@ -556,7 +556,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     await joinWaitlist(payload, w2.id, s.id)
     await cancelBooking(payload, booked[0].userId, booked[0].bookingId)
     const p = await promoteWaitlist(payload, s.id)
-    add('Angebot an die erste Person', p.kind === 'offered')
+    add('The offer goes to the first person', p.kind === 'offered')
 
     // mark the offer as expired, as if the window had run out
     await payload.update({
@@ -564,24 +564,24 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       data: { offerExpiresAt: new Date(Date.now() - 60000).toISOString() },
     })
     const tick = await expireOffers(payload)
-    add('Abgelaufenes Angebot wird verfallen', tick.expired >= 1, `${tick.expired}`)
-    add('Nächste Person erhält ein Angebot', tick.promoted >= 1, `${tick.promoted}`)
+    add('An expired offer is let go', tick.expired >= 1, `${tick.expired}`)
+    add('The next person gets an offer', tick.promoted >= 1, `${tick.promoted}`)
     const second = await payload.find({
       collection: 'waitlist-entries',
       where: { and: [{ session: { equals: s.id } }, { customer: { equals: w2.id } }] },
       limit: 1, depth: 0,
     })
-    add('Angebot steht jetzt bei Person 2',
+    add('The offer now sits with person 2',
       (second.docs[0] as any)?.status === 'offered', (second.docs[0] as any)?.status)
     const late = await claimOffer(payload, w1.id, e1.entryId)
-    add('Nach Fristablauf kein Zugriff mehr', !late.ok, why(late))
+    add('No access once the window has passed', !late.ok, why(late))
   })
 
   await section("inside the lock window everyone may book", async () => {
     const s = await mkSession(c, { hours: 3 })
     const booked = await fillSession(c, s)
     const w1 = await mkCustomer(c); await mkAbo(c, w1)
-    const belep = await joinWaitlist(payload, w1.id, s.id)
+    const signIn = await joinWaitlist(payload, w1.id, s.id)
     const storno = await cancelBooking(payload, booked[0].userId, booked[0].bookingId)
 
     /*
@@ -590,22 +590,22 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
      * not reveal which step had gone wrong. Now the failing assertion
      * will say so next time.
      */
-    add('Precondition: the class filled up', booked.length > 0 && belep.ok,
-      `${booked.length} foglalás, várólista: ${why(belep) || 'ok'}`)
+    add('Precondition: the class filled up', booked.length > 0 && signIn.ok,
+      `${booked.length} booked, waiting list: ${why(signIn) || 'ok'}`)
     add('Precondition: the cancellation succeeded', storno.ok, storno.reason)
-    const szabad = (await getAvailability(payload, s.id)).filter((x) => x.status === 'free')
-    add('Precondition: a machine is free after the cancellation', szabad.length === 1, `${szabad.length}`)
-    const varo = await payload.find({
+    const free = (await getAvailability(payload, s.id)).filter((x) => x.status === 'free')
+    add('Precondition: a machine is free after the cancellation', free.length === 1, `${free.length}`)
+    const waitingEntries = await payload.find({
       collection: 'waitlist-entries',
       where: { and: [{ session: { equals: s.id } }, { status: { equals: 'waiting' } }] },
       limit: 5, depth: 0,
     })
-    add('Precondition: exactly one person is waiting', varo.totalDocs === 1, `${varo.totalDocs}`)
+    add('Precondition: exactly one person is waiting', waitingEntries.totalDocs === 1, `${waitingEntries.totalDocs}`)
 
     // 30 minutes before the class there is no individual offer any more
     const soon = new Date(new Date(s.startsAt).getTime() - 30 * 60000)
     const r = await promoteWaitlist(payload, s.id, soon)
-    add('Kurz vor Beginn wird der Platz für alle freigegeben', r.kind === 'released',
+    add('Shortly before the start the spot is released to everyone', r.kind === 'released',
       `${r.kind}${r.kind === 'nothing' ? ': ' + (r as { reason?: string }).reason : ''}`)
   })
 
@@ -618,7 +618,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const p = await promoteWaitlist(payload, s.id)
     const ok = p.kind === 'offered' &&
       (p as any).offer.expiresAt.getTime() <= new Date(s.startsAt).getTime() - 36e5
-    add('Angebotsfrist endet spätestens im Sperrfenster', ok)
+    add('The offer window ends at the lock window at the latest', ok)
   })
 
   await section("sweeping: a freed-up spot is offered from the scheduler", async () => {
@@ -628,7 +628,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const e: any = await joinWaitlist(payload, w.id, s.id)
 
     const idle = await sweepOpenSpots(payload)
-    add('Bei voller Lektion bietet der Sweep nichts an', idle.promoted === 0, `${idle.promoted}`)
+    add('With a full class the sweep offers nothing', idle.promoted === 0, `${idle.promoted}`)
 
     // Free the machine directly, without offering it — as if an admin
     // had deleted the booking, or the offer attempt had failed.
@@ -637,13 +637,13 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       data: { status: 'cancelled', cancelledAt: new Date().toISOString() },
     })
     const swept = await sweepOpenSpots(payload)
-    add('Freier Platz wird vom Sweep angeboten', swept.promoted === 1, `${swept.promoted}`)
+    add('A free spot is offered by the sweep', swept.promoted === 1, `${swept.promoted}`)
     const entry: any = await payload.findByID({ collection: 'waitlist-entries', id: e.entryId, depth: 0 })
-    add('Der Eintrag steht auf «angeboten»', entry.status === 'offered', entry.status)
-    add('Die Mail ist raus', (await mails(c, w.id, 'waitlist_offer')).length === 1)
+    add('The entry reads “offered”', entry.status === 'offered', entry.status)
+    add('The e-mail has gone out', (await mails(c, w.id, 'waitlist_offer')).length === 1)
 
     const again = await runWaitlistTick(payload)
-    add('Der nächste Tick bietet nicht doppelt an', again.promoted === 0, `${again.promoted}`)
+    add('The next tick does not offer twice', again.promoted === 0, `${again.promoted}`)
   })
 
   // ------------------------------------------------ attendance and no-shows
@@ -654,45 +654,45 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const rl = await createBooking(payload, u.id, late.id)
     await cancelBooking(payload, u.id, (rl as any).bookingId)
     const bl: any = await payload.findByID({ collection: 'bookings', id: (rl as any).bookingId, depth: 0 })
-    add('Zu spät storniert wird als «zu spät» erfasst', bl.cancellationType === 'late', bl.cancellationType)
+    add('A late cancellation is recorded as “too late”', bl.cancellationType === 'late', bl.cancellationType)
 
     const inTime = await mkSession(c, { hours: 72 })
     const ri = await createBooking(payload, u.id, inTime.id)
     await cancelBooking(payload, u.id, (ri as any).bookingId)
     const bi: any = await payload.findByID({ collection: 'bookings', id: (ri as any).bookingId, depth: 0 })
-    add('Rechtzeitig storniert wird als «rechtzeitig» erfasst', bi.cancellationType === 'in_time', bi.cancellationType)
+    add('A timely cancellation is recorded as “in time”', bi.cancellationType === 'in_time', bi.cancellationType)
   })
 
   await section("closing a class: whoever booked counts as present", async () => {
     const s = await mkSession(c, { hours: 2 })
     const made = await fillSession(c, s)
     const early = await closeSession(payload, s.id)
-    add('Noch nicht begonnene Lektion kann nicht geschlossen werden', !early.ok, early.reason)
+    add('A class that has not started cannot be closed', !early.ok, early.reason)
 
     // The instructor marks ONLY the absentee — that is their entire job here.
     await payload.update({
       collection: 'sessions', id: s.id,
       data: { startsAt: new Date(Date.now() - 2 * 36e5).toISOString() },
     })
-    const hianyzo = await markAttendance(payload, made[0].bookingId, 'no_show')
-    add('Trainerin markiert die Abwesende', hianyzo.ok, hianyzo.reason)
+    const missing = await markAttendance(payload, made[0].bookingId, 'no_show')
+    add('The instructor marks the absent person', missing.ok, missing.reason)
 
     const closed = await closeSession(payload, s.id)
-    add('Alle übrigen gelten als anwesend',
+    add('Everyone else counts as present',
       closed.ok && closed.marked === made.length - 1, `${closed.marked}/${made.length - 1}`)
 
     const rel = await getReliability(payload, made[1].userId)
-    add('Wer nichts tun musste, zählt als besucht', rel.attended === 1, JSON.stringify(rel))
+    add('Whoever needed no action counts as attended', rel.attended === 1, JSON.stringify(rel))
     const rel0 = await getReliability(payload, made[0].userId)
-    add('Nur die markierte Person zählt als nicht erschienen',
+    add('Only the marked person counts as a no-show',
       rel0.noShows === 1 && rel0.attended === 0, JSON.stringify(rel0))
 
     const again = await closeSession(payload, s.id)
-    add('Erneutes Schliessen ändert nichts mehr', again.ok && again.marked === 0, `${again.marked}`)
+    add('Closing again changes nothing', again.ok && again.marked === 0, `${again.marked}`)
 
     // The mark can be undone: anyone can misclick.
-    const vissza = await markAttendance(payload, made[0].bookingId, 'attended')
-    add('Markierung lässt sich zurücknehmen', vissza.ok, vissza.reason)
+    const back = await markAttendance(payload, made[0].bookingId, 'attended')
+    add('The marking can be undone', back.ok, back.reason)
   })
 
   await section("an unclosed class closes itself", async () => {
@@ -710,14 +710,14 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
      * the same way, and a global count could break because of them at
      * any time. The test checks the rule, not the environment.
      */
-    const allapot = async () =>
+    const status = async () =>
       ((await payload.findByID({
         collection: 'bookings', id: made[0].bookingId, depth: 0,
       })) as any).status
 
     await closeStaleSessions(payload)
-    add('Frisch vergangene Lektion bleibt vorerst offen',
-      (await allapot()) === 'booked', await allapot())
+    add('A class just past stays open for now',
+      (await status()) === 'booked', await status())
 
     // By the next day, though, it should settle itself.
     await payload.update({
@@ -727,79 +727,79 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       },
     })
     await closeStaleSessions(payload)
-    add('Alte Lektion schliesst sich von selbst und gilt als anwesend',
-      (await allapot()) === 'attended', await allapot())
+    add('An old class closes itself and counts as attended',
+      (await status()) === 'attended', await status())
   })
 
   await section("creating a class", async () => {
-    const holnap = new Date(Date.now() + 36 * 36e5)
-    const nap = napKulcs(holnap)
+    const tomorrow = new Date(Date.now() + 36 * 36e5)
+    const day = dayKey(tomorrow)
 
     const r = await createSession(payload, {
-      nap, ido: '07:15', classTypeId: c.reformerType.id, studioId: c.studioA.id,
-      instructorId: c.admin.id, perc: 60, megjegyzes: TEST_NOTE,
+      day, time: '07:15', classTypeId: c.reformerType.id, studioId: c.studioA.id,
+      instructorId: c.admin.id, minutes: 60, note: TEST_NOTE,
     })
-    add('Lektion wird angelegt', r.ok, why(r))
+    add('The class is created', r.ok, why(r))
     if (r.ok) {
-      const uj: any = await payload.findByID({ collection: 'sessions', id: r.sessionId, depth: 0 })
-      add('Lektion liegt am gewählten Tag', napKulcs(uj.startsAt) === nap, napKulcs(uj.startsAt))
-      add('Lektion ist buchbar', uj.status === 'scheduled', uj.status)
+      const created: any = await payload.findByID({ collection: 'sessions', id: r.sessionId, depth: 0 })
+      add('The class lands on the chosen day', dayKey(created.startsAt) === day, dayKey(created.startsAt))
+      add('The class can be booked', created.status === 'scheduled', created.status)
     }
 
-    const utkozik = await createSession(payload, {
-      nap, ido: '07:15', classTypeId: c.reformerType.id, studioId: c.studioB.id,
-      instructorId: c.admin.id, perc: 60, megjegyzes: TEST_NOTE,
+    const conflicts = await createSession(payload, {
+      day, time: '07:15', classTypeId: c.reformerType.id, studioId: c.studioB.id,
+      instructorId: c.admin.id, minutes: 60, note: TEST_NOTE,
     })
-    add('Doppelbuchung derselben Trainerin wird abgewiesen', !utkozik.ok, why(utkozik))
+    add('Double-booking the same instructor is refused', !conflicts.ok, why(conflicts))
 
-    const mult = await createSession(payload, {
-      nap: napKulcs(new Date(Date.now() - 48 * 36e5)), ido: '09:00',
+    const past = await createSession(payload, {
+      day: dayKey(new Date(Date.now() - 48 * 36e5)), time: '09:00',
       classTypeId: c.reformerType.id, studioId: c.studioA.id,
-      instructorId: c.admin.id, perc: 60, megjegyzes: TEST_NOTE,
+      instructorId: c.admin.id, minutes: 60, note: TEST_NOTE,
     })
-    add('Lektion in der Vergangenheit wird abgewiesen', !mult.ok, why(mult))
+    add('A class in the past is refused', !past.ok, why(past))
 
-    const rosszIdo = await createSession(payload, {
-      nap, ido: '25:00', classTypeId: c.reformerType.id, studioId: c.studioA.id,
-      instructorId: c.admin.id, perc: 60, megjegyzes: TEST_NOTE,
+    const badTime = await createSession(payload, {
+      day, time: '25:00', classTypeId: c.reformerType.id, studioId: c.studioA.id,
+      instructorId: c.admin.id, minutes: 60, note: TEST_NOTE,
     })
-    add('Unsinnige Uhrzeit wird abgewiesen', !rosszIdo.ok, why(rosszIdo))
+    add('A nonsensical time is refused', !badTime.ok, why(badTime))
 
     const u = await mkCustomer(c)
-    const nemOktato = await createSession(payload, {
-      nap, ido: '20:30', classTypeId: c.reformerType.id, studioId: c.studioA.id,
-      instructorId: u.id, perc: 60, megjegyzes: TEST_NOTE,
+    const notInstructor = await createSession(payload, {
+      day, time: '20:30', classTypeId: c.reformerType.id, studioId: c.studioA.id,
+      instructorId: u.id, minutes: 60, note: TEST_NOTE,
     })
-    add('Kundin als Trainerin wird abgewiesen', !nemOktato.ok, why(nemOktato))
+    add('A customer as instructor is refused', !notInstructor.ok, why(notInstructor))
   })
 
   await section("deleting a class", async () => {
-    const ures = await mkSession(c, { hours: 96 })
-    const d1 = await deleteSession(payload, ures.id)
-    add('Leere Lektion lässt sich löschen', d1.ok, why(d1))
-    const maradt = await payload.find({
-      collection: 'sessions', where: { id: { equals: ures.id } }, limit: 1, depth: 0,
+    const empty = await mkSession(c, { hours: 96 })
+    const d1 = await deleteSession(payload, empty.id)
+    add('An empty class can be deleted', d1.ok, why(d1))
+    const left = await payload.find({
+      collection: 'sessions', where: { id: { equals: empty.id } }, limit: 1, depth: 0,
     })
-    add('Gelöschte Lektion ist weg', maradt.totalDocs === 0)
+    add('A deleted class is gone', left.totalDocs === 0)
 
-    const foglalt = await mkSession(c, { hours: 96 })
+    const taken = await mkSession(c, { hours: 96 })
     const u = await mkCustomer(c); await mkAbo(c, u)
-    await createBooking(payload, u.id, foglalt.id)
-    const d2 = await deleteSession(payload, foglalt.id)
-    add('Lektion mit Anmeldung lässt sich NICHT löschen', !d2.ok, why(d2))
-    const megvan = await payload.find({
-      collection: 'sessions', where: { id: { equals: foglalt.id } }, limit: 1, depth: 0,
+    await createBooking(payload, u.id, taken.id)
+    const d2 = await deleteSession(payload, taken.id)
+    add('A class with a registration can NOT be deleted', !d2.ok, why(d2))
+    const found = await payload.find({
+      collection: 'sessions', where: { id: { equals: taken.id } }, limit: 1, depth: 0,
     })
-    add('Lektion mit Anmeldung bleibt bestehen', megvan.totalDocs === 1)
+    add('A class with a registration stays', found.totalDocs === 1)
   })
 
-  await section("stornierte Buchung nicht als anwesend", async () => {
+  await section("a cancelled booking cannot count as present", async () => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c, { hours: 72 })
     const r = await createBooking(payload, u.id, s.id)
     await cancelBooking(payload, u.id, (r as any).bookingId)
     const m = await markAttendance(payload, (r as any).bookingId, 'attended')
-    add('Stornierte Buchung kann nicht auf anwesend gesetzt werden', !m.ok, m.reason)
+    add('A cancelled booking cannot be set to present', !m.ok, m.reason)
   })
 
   // ------------------------------------------------ recurring classes
@@ -807,9 +807,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
   await section("generating a series", async () => {
     const sr = await mkSeries(c, { weekday: '1', time: '09:00', weeks: 4 })
     const g = await generateSessions(payload, sr.id)
-    add('Serie erzeugt Lektionen', g.created >= 3, `${g.created}`)
+    add('A series generates classes', g.created >= 3, `${g.created}`)
     const again = await generateSessions(payload, sr.id)
-    add('Erneutes Erzeugen duplizieren nicht', again.created === 0 && again.skipped === g.created,
+    add('Generating again does not duplicate', again.created === 0 && again.skipped === g.created,
       `${again.created}/${again.skipped}`)
 
     const kids = await payload.find({
@@ -818,12 +818,12 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const days = new Set((kids.docs as any[]).map((k) =>
       new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Zurich', weekday: 'short' })
         .format(new Date(k.startsAt))))
-    add('Alle Lektionen fallen auf den gewählten Wochentag', days.size === 1 && days.has('Mon'),
+    add('Every class falls on the chosen weekday', days.size === 1 && days.has('Mon'),
       [...days].join(','))
     const times = new Set((kids.docs as any[]).map((k) =>
       new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Zurich', hour12: false, hour: '2-digit', minute: '2-digit' })
         .format(new Date(k.startsAt))))
-    add('Ortszeit bleibt über die Sommerzeit hinweg gleich', times.size === 1 && times.has('09:00'),
+    add('Local time stays the same across the summer-time change', times.size === 1 && times.has('09:00'),
       [...times].join(','))
   })
 
@@ -831,8 +831,8 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     // In Switzerland in 2027, daylight saving begins on 28 March.
     const winter = zoneToUtc(2027, 3, 22, 9, 0) // Monday, CET (UTC+1)
     const summer = zoneToUtc(2027, 3, 29, 9, 0) // Monday, CEST (UTC+2)
-    add('Vor der Zeitumstellung 09:00 = 08:00 UTC', winter.getUTCHours() === 8, `${winter.toISOString()}`)
-    add('Nach der Zeitumstellung 09:00 = 07:00 UTC', summer.getUTCHours() === 7, `${summer.toISOString()}`)
+    add('Before the clocks change 09:00 = 08:00 UTC', winter.getUTCHours() === 8, `${winter.toISOString()}`)
+    add('After the clocks change 09:00 = 07:00 UTC', summer.getUTCHours() === 7, `${summer.toISOString()}`)
   })
 
   await section("this and all future ones", async () => {
@@ -842,7 +842,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       collection: 'sessions', where: { series: { equals: sr.id } }, sort: 'startsAt', limit: 50, depth: 0,
     })
     const list = kids.docs as any[]
-    add('Mindestens vier Lektionen für den Test', list.length >= 4, `${list.length}`)
+    add('At least four classes for the test', list.length >= 4, `${list.length}`)
     const pivot = list[1]
 
     // a new instructor, so the propagation is visible
@@ -867,24 +867,24 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     }).format(new Date(iso))
     const instr = (v: any) => (typeof v === 'object' && v ? v.id : v)
 
-    add('Frühere Lektion bleibt unverändert',
+    add('An earlier class stays unchanged',
       hourOf(rows[0].startsAt) === '18:00' && instr(rows[0].instructor) === c.admin.id,
       hourOf(rows[0].startsAt))
-    add('Geänderte Lektion hat die neue Zeit', hourOf(rows[1].startsAt) === '19:00', hourOf(rows[1].startsAt))
-    add('Künftige Lektionen übernehmen die neue Zeit',
+    add('The changed class has the new time', hourOf(rows[1].startsAt) === '19:00', hourOf(rows[1].startsAt))
+    add('Future classes take on the new time',
       rows.slice(1).every((r) => hourOf(r.startsAt) === '19:00'),
       rows.map((r) => hourOf(r.startsAt)).join(','))
-    add('Künftige Lektionen übernehmen die neue Trainerin',
+    add('Future classes take on the new instructor',
       rows.slice(1).every((r) => instr(r.instructor) === nina.id))
-    add('Jede Lektion bleibt an ihrem eigenen Datum',
+    add('Every class keeps its own date',
       new Set(rows.map((r) => new Date(r.startsAt).toISOString().slice(0, 10))).size === rows.length)
 
     const updatedSeries: any = await payload.findByID({
       collection: 'session-series', id: sr.id, depth: 0,
     })
-    add('Serienregel übernimmt die neue Uhrzeit', updatedSeries.timeOfDay === '19:00', updatedSeries.timeOfDay)
+    add('The series rule takes on the new time', updatedSeries.timeOfDay === '19:00', updatedSeries.timeOfDay)
     const pivotAfter: any = await payload.findByID({ collection: 'sessions', id: pivot.id, depth: 0 })
-    add('Nach dem Übertragen steht der Bereich wieder auf «nur diese»',
+    add('After propagating, the scope is back to “only this one”',
       pivotAfter.editScope === 'only_this', pivotAfter.editScope)
   })
 
@@ -904,7 +904,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       },
     })
     const detached: any = await payload.findByID({ collection: 'sessions', id: list[1].id, depth: 0 })
-    add('Einzeln geänderte Lektion wird von der Serie gelöst', detached.detached === true)
+    add('A class changed on its own is detached from the series', detached.detached === true)
 
     // now change it at series level, from the first one
     await payload.update({
@@ -915,10 +915,10 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       },
     })
     const stillDetached: any = await payload.findByID({ collection: 'sessions', id: list[1].id, depth: 0 })
-    add('Serienänderung überschreibt die gelöste Lektion nicht',
+    add('A series change does not overwrite the detached class',
       new Date(stillDetached.startsAt).getTime() === new Date(detached.startsAt).getTime())
     const third: any = await payload.findByID({ collection: 'sessions', id: list[2].id, depth: 0 })
-    add('Nicht gelöste Lektionen folgen der Serienänderung',
+    add('Classes that are not detached follow the series change',
       new Date(third.startsAt).getTime() === new Date(list[2].startsAt).getTime() + 36e5)
   })
 
@@ -932,7 +932,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
 
     const u = await mkCustomer(c); await mkAbo(c, u)
     const r = await createBooking(payload, u.id, target.id)
-    add('Buchung auf einer Serien-Lektion', r.ok, why(r))
+    add('A booking on a class from a series', r.ok, why(r))
 
     await payload.update({
       collection: 'sessions', id: list[1].id,
@@ -942,8 +942,8 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       },
     })
     const b: any = await payload.findByID({ collection: 'bookings', id: (r as any).bookingId, depth: 1 })
-    add('Buchung bleibt aktiv', b.status === 'booked', b.status)
-    add('Buchung folgt der neuen Zeit automatisch',
+    add('The booking stays active', b.status === 'booked', b.status)
+    add('The booking follows the new time automatically',
       new Date(b.session.startsAt).getTime() === new Date(target.startsAt).getTime() + 90 * 60000)
   })
 
@@ -954,16 +954,16 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const booked = await fillSession(c, s)
     const w = await mkCustomer(c); await mkAbo(c, w)
     await joinWaitlist(payload, w.id, s.id)
-    add('Vor dem Angebot keine Mail', (await mails(c, w.id)).length === 0)
+    add('No e-mail before the offer', (await mails(c, w.id)).length === 0)
 
     await cancelBooking(payload, booked[0].userId, booked[0].bookingId)
     const p = await promoteWaitlist(payload, s.id)
     const m = await mails(c, w.id, 'waitlist_offer')
-    add('Angebot löst eine Mail aus', m.length === 1, `${m.length}`)
-    add('Mail nennt die Frist',
+    add('The offer sends an e-mail', m.length === 1, `${m.length}`)
+    add('The e-mail states the deadline',
       m[0] && p.kind === 'offered' && m[0].body.includes(String(new Date((p as any).offer.expiresAt).getFullYear())))
-    add('Mail enthält den Buchungslink', m[0]?.body.includes(`/buchen/${s.id}`))
-    add('Mail ist der Lektion zugeordnet', m[0] && (typeof m[0].session === 'object' ? m[0].session.id : m[0].session) === s.id)
+    add('The e-mail contains the booking link', m[0]?.body.includes(`/buchen/${s.id}`))
+    add('The e-mail is tied to the class', m[0] && (typeof m[0].session === 'object' ? m[0].session.id : m[0].session) === s.id)
   })
 
   await section("the release email inside the lock window", async () => {
@@ -976,7 +976,7 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     await cancelBooking(payload, booked[0].userId, booked[0].bookingId)
     const soon = new Date(new Date(s.startsAt).getTime() - 30 * 60000)
     await promoteWaitlist(payload, s.id, soon)
-    add('Alle Wartenden werden informiert',
+    add('Everyone waiting is informed',
       (await mails(c, w1.id, 'waitlist_released')).length === 1 &&
       (await mails(c, w2.id, 'waitlist_released')).length === 1)
   })
@@ -985,14 +985,14 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const u = await mkCustomer(c); await mkAbo(c, u)
     const s = await mkSession(c, { hours: 96 })
     await createBooking(payload, u.id, s.id)
-    add('Buchung allein löst keine Änderungsmail aus',
+    add('A booking alone sends no change e-mail',
       (await mails(c, u.id, 'session_changed')).length === 0)
 
     await payload.update({
       collection: 'sessions', id: s.id,
       data: { durationMinutes: 55 },
     })
-    add('Dauer-Änderung ist keine Kundeninformation',
+    add('A change of duration is not news for the customer',
       (await mails(c, u.id, 'session_changed')).length === 0)
 
     await payload.update({
@@ -1000,9 +1000,9 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       data: { startsAt: new Date(new Date(s.startsAt).getTime() + 2 * 36e5).toISOString() },
     })
     const m = await mails(c, u.id, 'session_changed')
-    add('Zeitänderung wird gemeldet', m.length === 1, `${m.length}`)
-    add('Mail zeigt alte und neue Zeit', m[0]?.body.includes('→'))
-    add('Mail erklärt die Stornomöglichkeit', m[0]?.body.includes('24 Stunden'))
+    add('A change of time is reported', m.length === 1, `${m.length}`)
+    add('The e-mail shows the old and the new time', m[0]?.body.includes('→'))
+    add('The e-mail explains the option to cancel', m[0]?.body.includes('24 Stunden'))
   })
 
   await section("notification of an instructor change", async () => {
@@ -1013,8 +1013,8 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     await payload.update({ collection: 'users', id: nina.id, data: { role: 'instructor' } })
     await payload.update({ collection: 'sessions', id: s.id, data: { instructor: nina.id } })
     const m = await mails(c, u.id, 'session_changed')
-    add('Trainerinnenwechsel wird gemeldet', m.length === 1, `${m.length}`)
-    add('Mail nennt die neue Trainerin', m[0]?.body.includes('Vertretung'))
+    add('A change of instructor is reported', m.length === 1, `${m.length}`)
+    add('The e-mail names the new instructor', m[0]?.body.includes('Vertretung'))
   })
 
   await section("a cancelled booking gets no notification", async () => {
@@ -1028,8 +1028,8 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       collection: 'sessions', id: s.id,
       data: { startsAt: new Date(new Date(s.startsAt).getTime() + 36e5).toISOString() },
     })
-    add('Wer storniert hat, erhält nichts', (await mails(c, u1.id, 'session_changed')).length === 0)
-    add('Wer gebucht hat, erhält die Information', (await mails(c, u2.id, 'session_changed')).length === 1)
+    add('Whoever cancelled gets nothing', (await mails(c, u1.id, 'session_changed')).length === 0)
+    add('Whoever booked gets the news', (await mails(c, u2.id, 'session_changed')).length === 1)
   })
 
   await section("a series change notifies the people booked into the affected classes", async () => {
@@ -1051,8 +1051,8 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
         editScope: 'this_and_future',
       },
     })
-    add('Frühere Lektion: keine Mail', (await mails(c, early.id, 'session_changed')).length === 0)
-    add('Spätere Lektion: Mail verschickt', (await mails(c, later.id, 'session_changed')).length === 1)
+    add('An earlier class: no e-mail', (await mails(c, early.id, 'session_changed')).length === 0)
+    add('A later class: e-mail sent', (await mails(c, later.id, 'session_changed')).length === 1)
   })
 
   // ------------------------------------------------ cancellation by the studio
@@ -1066,31 +1066,31 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     }))
 
     const r = await cancelSessionByStudio(payload, s.id, 'Krankheit der Trainerin')
-    add('Absage durch das Studio gelingt', r.ok, r.reason)
-    add('Alle Buchungen storniert', r.cancelled === made.length, `${r.cancelled}/${made.length}`)
-    add('Guthaben allen zurückgebucht', r.refunded === made.length, `${r.refunded}`)
-    add('Alle informiert', r.notified === made.length, `${r.notified}`)
+    add('A cancellation by the studio succeeds', r.ok, r.reason)
+    add('All bookings cancelled', r.cancelled === made.length, `${r.cancelled}/${made.length}`)
+    add('Credits returned to everyone', r.refunded === made.length, `${r.refunded}`)
+    add('Everyone informed', r.notified === made.length, `${r.notified}`)
 
     const after = await Promise.all(before.map((b) => credits(c, b.aboId)))
-    add('Guthaben trotz 24h-Frist erstattet',
+    add('Credits refunded despite the 24h rule',
       after.every((v, i) => v === before[i].credits + 1), after.join(','))
 
     const b0: any = await payload.findByID({ collection: 'bookings', id: made[0].bookingId, depth: 0 })
-    add('Stornoart ist «durch das Studio»', b0.cancellationType === 'by_studio', b0.cancellationType)
+    add('The cancellation type is “by the studio”', b0.cancellationType === 'by_studio', b0.cancellationType)
     const sess: any = await payload.findByID({ collection: 'sessions', id: s.id, depth: 0 })
-    add('Lektion gilt als abgesagt', sess.status === 'cancelled', sess.status)
-    add('Grund steht in der Lektion',
+    add('The class counts as cancelled', sess.status === 'cancelled', sess.status)
+    add('The reason is on the class',
       sess.cancellationReason === 'Krankheit der Trainerin', sess.cancellationReason)
-    add('Der Hinweis der Inhaberin bleibt unberührt', sess.note === 'TEST', sess.note)
+    add('The owner’s own note is left untouched', sess.note === 'TEST', sess.note)
 
     const m = await mails(c, made[0].userId, 'session_cancelled')
-    add('Absage-Mail nennt den Grund', m[0]?.body.includes('Krankheit der Trainerin'))
-    add('Absage-Mail nennt die Rückbuchung', m[0]?.body.includes('zurückgebucht'))
-    add('Keine Änderungsmail zusätzlich',
+    add('The cancellation e-mail states the reason', m[0]?.body.includes('Krankheit der Trainerin'))
+    add('The cancellation e-mail mentions the refund', m[0]?.body.includes('zurückgebucht'))
+    add('No change e-mail on top',
       (await mails(c, made[0].userId, 'session_changed')).length === 0)
 
     const again = await cancelSessionByStudio(payload, s.id, 'Krankheit der Trainerin')
-    add('Erneute Absage bucht nichts doppelt zurück', again.ok && again.refunded === 0, `${again.refunded}`)
+    add('Cancelling again does not refund twice', again.ok && again.refunded === 0, `${again.refunded}`)
   })
 
   await section("cancelling withdraws the waitlist too", async () => {
@@ -1100,28 +1100,28 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const e: any = await joinWaitlist(payload, w.id, s.id)
     await cancelSessionByStudio(payload, s.id, 'Organisatorische Gründe')
     const entry: any = await payload.findByID({ collection: 'waitlist-entries', id: e.entryId, depth: 0 })
-    add('Wartelisteneintrag wird zurückgezogen', entry.status === 'withdrawn', entry.status)
+    add('The waiting-list entry is withdrawn', entry.status === 'withdrawn', entry.status)
   })
 
   await section("too few participants (minimum 2)", async () => {
     const full = await mkSession(c, { hours: 48 })
     await fillSession(c, full)
     const no = await cancelForTooFewParticipants(payload, full.id, 2)
-    add('Bei genug Anmeldungen wird nicht abgesagt', !no.ok, no.reason)
+    add('With enough registrations it is not cancelled', !no.ok, no.reason)
 
     const thin = await mkSession(c, { hours: 48 })
     const u = await mkCustomer(c); const a = await mkAbo(c, u, { credits: 5 })
     await createBooking(payload, u.id, thin.id)
-    add('Guthaben nach Buchung', (await credits(c, a.id)) === 4)
+    add('Credits after the booking', (await credits(c, a.id)) === 4)
     const r = await cancelForTooFewParticipants(payload, thin.id, 2)
-    add('Mit einer Anmeldung wird abgesagt', r.ok, r.reason)
-    add('Guthaben kommt zurück', (await credits(c, a.id)) === 5, `${await credits(c, a.id)}`)
+    add('With one registration it is cancelled', r.ok, r.reason)
+    add('The credit comes back', (await credits(c, a.id)) === 5, `${await credits(c, a.id)}`)
     const m = await mails(c, u.id, 'session_cancelled')
-    add('Mail nennt die zu wenigen Anmeldungen', m[0]?.body.includes('Zu wenige Anmeldungen'))
+    add('The e-mail mentions the too-few registrations', m[0]?.body.includes('Zu wenige Anmeldungen'))
 
     const empty = await mkSession(c, { hours: 48 })
     const r2 = await cancelForTooFewParticipants(payload, empty.id, 2)
-    add('Leere Lektion kann abgesagt werden, ohne jemanden zu informieren',
+    add('An empty class can be cancelled without informing anyone',
       r2.ok && r2.cancelled === 0 && r2.notified === 0)
   })
 
@@ -1129,20 +1129,20 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
 
   await section("rate eligibility", async () => {
     const now = new Date('2026-06-15T00:00:00Z')
-    add('24 Jahre ist noch Young Member', isYoungMember(2002, now))
-    add('16 Jahre ist Young Member', isYoungMember(2010, now))
-    add('25 Jahre ist es nicht mehr', !isYoungMember(2001, now))
-    add('15 Jahre noch nicht', !isYoungMember(2011, now))
-    add('Ohne Jahrgang kein Young Member', !isYoungMember(undefined, now))
-    add('Matten-Teilnehmende sind berechtigt', qualifiesForReduced({ isMatCustomer: true }))
-    add('Ohne beides nicht berechtigt', !qualifiesForReduced({ isMatCustomer: false }))
+    add('24 years old is still a Young Member', isYoungMember(2002, now))
+    add('16 years old is a Young Member', isYoungMember(2010, now))
+    add('25 years old is not any more', !isYoungMember(2001, now))
+    add('15 years old is not yet', !isYoungMember(2011, now))
+    add('Without a year of birth, no Young Member', !isYoungMember(undefined, now))
+    add('Mat-class participants qualify', qualifiesForReduced({ isMatCustomer: true }))
+    add('Without either, no entitlement', !qualifiesForReduced({ isMatCustomer: false }))
   })
 
   await section("computing validity", async () => {
     const from = new Date('2026-01-31T10:00:00Z')
-    add('7 Monate werden addiert', expiryFrom(from, 7).getMonth() === 7)
+    add('7 months are added', expiryFrom(from, 7).getMonth() === 7)
     const short = expiryFrom(new Date('2026-03-01T10:00:00Z'), 0.25)
-    add('Unter einem Monat wird in Tagen gerechnet',
+    add('Under a month it is counted in days',
       Math.round((short.getTime() - new Date('2026-03-01T10:00:00Z').getTime()) / 864e5) === 8,
       short.toISOString())
   })
@@ -1155,11 +1155,11 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
 
     const forPlain = await listPurchasable(payload, plain)
     const forYoung = await listPurchasable(payload, youngFresh)
-    add('Standardkundin sieht keinen reduzierten Tarif',
+    add('A standard customer sees no reduced rate',
       forPlain.every((t: any) => t.tier === 'standard'))
-    add('Young Member sieht auch den reduzierten Tarif',
+    add('A Young Member also sees the reduced rate',
       forYoung.some((t: any) => t.tier === 'reduced'))
-    add('Young Member sieht mindestens so viele Abos', forYoung.length > forPlain.length,
+    add('A Young Member sees at least as many passes', forYoung.length > forPlain.length,
       `${forYoung.length} vs ${forPlain.length}`)
   })
 
@@ -1172,26 +1172,26 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     })).docs[0] as any
 
     const r = await orderAbo(payload, u.id, type.id, 'on_site')
-    add('Bestellung wird angenommen', r.ok, why(r))
+    add('The order is accepted', r.ok, why(r))
     const aboId = (r as any).aboId
     const abo: any = await payload.findByID({ collection: 'abos', id: aboId, depth: 0 })
-    add('Abo ist offen, nicht aktiv', abo.status === 'pending', abo.status)
-    add('Zahlungsart gespeichert', abo.paymentMethod === 'on_site', abo.paymentMethod)
-    add('Bestellzeitpunkt gespeichert', Boolean(abo.orderedAt))
+    add('The pass is open, not active', abo.status === 'pending', abo.status)
+    add('The payment method is stored', abo.paymentMethod === 'on_site', abo.paymentMethod)
+    add('The time of the order is stored', Boolean(abo.orderedAt))
 
-    add('Offene Bestellung zählt nicht als nutzbares Abo',
+    add('An open order does not count as a usable pass',
       (await findUsableAbo(payload, u.id)) === null)
 
     const s = await mkSession(c)
     const b = await createBooking(payload, u.id, s.id)
-    add('Mit offener Bestellung kann nicht gebucht werden', !b.ok, why(b))
+    add('With an open order you cannot book', !b.ok, why(b))
 
-    add('Bestätigungsmail verschickt', (await mails(c, u.id, 'abo_ordered')).length === 1)
+    add('The confirmation e-mail is sent', (await mails(c, u.id, 'abo_ordered')).length === 1)
     const open = await getOpenOrder(payload, u.id)
-    add('Offene Bestellung ist auffindbar', open?.id === aboId)
+    add('An open order can be found', open?.id === aboId)
 
     const twice = await orderAbo(payload, u.id, type.id, 'on_site')
-    add('Zweite offene Bestellung wird abgewiesen', !twice.ok, why(twice))
+    add('A second open order is refused', !twice.ok, why(twice))
   })
 
   await section("confirming the payment is what releases it", async () => {
@@ -1206,24 +1206,24 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
 
     const paidAt = new Date()
     const conf = await confirmPayment(payload, aboId, paidAt)
-    add('Freischaltung gelingt', conf.ok, conf.reason)
+    add('Activation succeeds', conf.ok, conf.reason)
     const abo: any = await payload.findByID({ collection: 'abos', id: aboId, depth: 0 })
-    add('Abo ist aktiv', abo.status === 'active', abo.status)
-    add('Guthaben entspricht dem Abo', abo.creditsRemaining === type.credits, `${abo.creditsRemaining}`)
-    add('Zahlungsdatum gespeichert', Boolean(abo.paidAt))
-    add('Gültigkeit läuft ab der Freischaltung',
+    add('The pass is active', abo.status === 'active', abo.status)
+    add('The credits match the pass', abo.creditsRemaining === type.credits, `${abo.creditsRemaining}`)
+    add('The payment date is stored', Boolean(abo.paidAt))
+    add('Validity runs from the activation',
       Math.abs(new Date(abo.expiresAt).getTime() -
         expiryFrom(paidAt, type.validMonths).getTime()) < 60000,
       abo.expiresAt)
-    add('Freischaltungsmail verschickt', (await mails(c, u.id, 'abo_activated')).length === 1)
+    add('The activation e-mail is sent', (await mails(c, u.id, 'abo_activated')).length === 1)
 
-    add('Jetzt ist das Abo nutzbar', (await findUsableAbo(payload, u.id))?.id === aboId)
+    add('Now the pass is usable', (await findUsableAbo(payload, u.id))?.id === aboId)
     const s = await mkSession(c)
     const b = await createBooking(payload, u.id, s.id)
-    add('Nach Freischaltung kann gebucht werden', b.ok, why(b))
+    add('After activation you can book', b.ok, why(b))
 
     const again = await confirmPayment(payload, aboId)
-    add('Zweite Freischaltung wird abgewiesen', !again.ok, again.reason)
+    add('A second activation is refused', !again.ok, again.reason)
   })
 
   await section("withdrawing an order", async () => {
@@ -1238,16 +1238,16 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const aboId = (r as any).aboId
 
     const foreign = await cancelOrder(payload, aboId, other.id)
-    add('Fremde Bestellung kann nicht zurückgezogen werden', !foreign.ok, foreign.reason)
+    add('Someone else’s order cannot be withdrawn', !foreign.ok, foreign.reason)
     const mine = await cancelOrder(payload, aboId, u.id)
-    add('Eigene Bestellung kann zurückgezogen werden', mine.ok, mine.reason)
+    add('Your own order can be withdrawn', mine.ok, mine.reason)
     const abo: any = await payload.findByID({ collection: 'abos', id: aboId, depth: 0 })
-    add('Zurückgezogene Bestellung ist storniert', abo.status === 'cancelled', abo.status)
+    add('A withdrawn order is cancelled', abo.status === 'cancelled', abo.status)
     const conf = await confirmPayment(payload, aboId)
-    add('Storniertes kann nicht freigeschaltet werden', !conf.ok, conf.reason)
+    add('A cancelled order cannot be activated', !conf.ok, conf.reason)
 
     const fresh = await orderAbo(payload, u.id, type.id)
-    add('Nach dem Zurückziehen ist eine neue Bestellung möglich', fresh.ok, why(fresh))
+    add('After withdrawing, a new order is possible', fresh.ok, why(fresh))
   })
 
   await section("the reduced rate without eligibility", async () => {
@@ -1257,10 +1257,10 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     })).docs[0] as any
     if (reduced) {
       const r = await orderAbo(payload, u.id, reduced.id)
-      add('Reduzierter Tarif ohne Berechtigung abgewiesen', !r.ok, why(r))
-      add('Keine Bestellung angelegt', (await getOpenOrder(payload, u.id)) === null)
+      add('The reduced rate without entitlement is refused', !r.ok, why(r))
+      add('No order was created', (await getOpenOrder(payload, u.id)) === null)
     } else {
-      add('Reduzierter Tarif ist eingerichtet', false, 'kein reduced abo-type vorhanden')
+      add('The reduced rate is set up', false, 'kein reduced abo-type vorhanden')
     }
   })
 
@@ -1271,11 +1271,11 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     if (voucher) {
       const u = await mkCustomer(c)
       const bad = await orderAbo(payload, u.id, voucher.id, 'on_site')
-      add('Gutschein-Abo nicht bar bestellbar', !bad.ok, why(bad))
+      add('A voucher-only pass cannot be ordered with cash', !bad.ok, why(bad))
       const good = await orderAbo(payload, u.id, voucher.id, 'voucher')
-      add('Mit Gutschein bestellbar', good.ok, why(good))
+      add('It can be ordered with a voucher', good.ok, why(good))
     } else {
-      add('Gutschein-Abo ist eingerichtet', false, 'kein voucherOnly abo-type vorhanden')
+      add('The voucher-only pass is set up', false, 'kein voucherOnly abo-type vorhanden')
     }
   })
 
@@ -1296,19 +1296,19 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const s1 = await mkSession(c)
     await payload.update({ collection: 'sessions', id: s1.id, data: { instructor: en.id } })
     const loaded1: any = await payload.findByID({ collection: 'sessions', id: s1.id, depth: 1 })
-    add('Nur-Englisch-Trainerin ergibt EN', languageLabel(loaded1) === 'EN', languageLabel(loaded1))
+    add('An English-only instructor gives EN', languageLabel(loaded1) === 'EN', languageLabel(loaded1))
 
     const s2 = await mkSession(c)
     await payload.update({ collection: 'sessions', id: s2.id, data: { instructor: both.id } })
     const loaded2: any = await payload.findByID({ collection: 'sessions', id: s2.id, depth: 1 })
-    add('Zweisprachige Trainerin ergibt DE/EN', languageLabel(loaded2) === 'DE/EN', languageLabel(loaded2))
+    add('A bilingual instructor gives DE/EN', languageLabel(loaded2) === 'DE/EN', languageLabel(loaded2))
 
     // Changing an instructor's languages carries to all their classes
     await payload.update({
       collection: 'users', id: en.id, data: { teachingLanguages: ['de', 'en'] },
     })
     const after: any = await payload.findByID({ collection: 'sessions', id: s1.id, depth: 1 })
-    add('Änderung an der Trainerin wirkt auf ihre Lektionen',
+    add('A change on the instructor reaches her classes',
       languageLabel(after) === 'DE/EN', languageLabel(after))
   })
 
@@ -1324,13 +1324,13 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
       data: { instructor: both.id, languages: ['en'] },
     })
     const loaded: any = await payload.findByID({ collection: 'sessions', id: s.id, depth: 1 })
-    add('Eigene Sprache der Lektion gilt vor der Trainerin',
+    add('The class’s own language wins over the instructor’s',
       languageLabel(loaded) === 'EN', languageLabel(loaded))
 
     // Set back to empty, the instructor's languages apply again
     await payload.update({ collection: 'sessions', id: s.id, data: { languages: [] } })
     const back: any = await payload.findByID({ collection: 'sessions', id: s.id, depth: 1 })
-    add('Leer gelassen gelten wieder die Sprachen der Trainerin',
+    add('Left empty, the instructor’s languages apply again',
       languageLabel(back) === 'DE/EN', languageLabel(back))
   })
 
@@ -1340,112 +1340,112 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     const s = await mkSession(c)
     await payload.update({ collection: 'sessions', id: s.id, data: { instructor: none.id } })
     const loaded: any = await payload.findByID({ collection: 'sessions', id: s.id, depth: 1 })
-    add('Ohne hinterlegte Sprache bleibt die Anzeige leer',
+    add('With no language on file the display stays empty',
       languageLabel(loaded) === '' && sessionLanguages(loaded).length === 0)
-    add('Keine Sprache verhindert die Buchung nicht', true)
+    add('No language does not prevent a booking', true)
   })
 
   await section("classes are 60 minutes", async () => {
     const s = await mkSession(c)
-    add('Neue Lektion dauert 60 Minuten', s.durationMinutes === 60, `${s.durationMinutes}`)
+    add('A new class lasts 60 minutes', s.durationMinutes === 60, `${s.durationMinutes}`)
   })
 
   // ------------------------------------------------ calendar
 
   await section("calendar: days and weeks", async () => {
-    add('The week starts on Monday', hetNapja('2026-10-26') === 0, `${hetNapja('2026-10-26')}`)
-    add('Sunday is the end of the week', hetNapja('2026-11-01') === 6, `${hetNapja('2026-11-01')}`)
-    add('The Monday of the week a Thursday falls in', hetKezdete('2026-10-29') === '2026-10-26', hetKezdete('2026-10-29'))
+    add('The week starts on Monday', dayOfWeek('2026-10-26') === 0, `${dayOfWeek('2026-10-26')}`)
+    add('Sunday is the end of the week', dayOfWeek('2026-11-01') === 6, `${dayOfWeek('2026-11-01')}`)
+    add('The Monday of the week a Thursday falls in', weekStart('2026-10-29') === '2026-10-26', weekStart('2026-10-29'))
     add('Sunday still belongs to the previous Monday',
-      hetKezdete('2026-11-01') === '2026-10-26', hetKezdete('2026-11-01'))
-    add('Crossing a month boundary', napPlusz('2026-10-31', 1) === '2026-11-01', napPlusz('2026-10-31', 1))
+      weekStart('2026-11-01') === '2026-10-26', weekStart('2026-11-01'))
+    add('Crossing a month boundary', addDays('2026-10-31', 1) === '2026-11-01', addDays('2026-10-31', 1))
     add('Crossing a year boundary backwards',
-      napPlusz('2027-01-01', -1) === '2026-12-31', napPlusz('2027-01-01', -1))
-    add('February in a leap year has 29 days', honapHossza('2028-02-10') === 29, `${honapHossza('2028-02-10')}`)
-    add('February in a non-leap year has 28', honapHossza('2026-02-10') === 28, `${honapHossza('2026-02-10')}`)
+      addDays('2027-01-01', -1) === '2026-12-31', addDays('2027-01-01', -1))
+    add('February in a leap year has 29 days', monthLength('2028-02-10') === 29, `${monthLength('2028-02-10')}`)
+    add('February in a non-leap year has 28', monthLength('2026-02-10') === 28, `${monthLength('2026-02-10')}`)
   })
 
   await section("calendar: the days in each view", async () => {
-    add('The day view consists of one day', naptarNapjai('nap', '2026-10-29').length === 1)
-    const het = naptarNapjai('het', '2026-10-29')
-    add('The week view consists of seven days', het.length === 7, `${het.length}`)
+    add('The day view consists of one day', calendarDays('tag', '2026-10-29').length === 1)
+    const week = calendarDays('woche', '2026-10-29')
+    add('The week view consists of seven days', week.length === 7, `${week.length}`)
     add('The week starts on Monday and ends on Sunday',
-      het[0] === '2026-10-26' && het[6] === '2026-11-01', `${het[0]} … ${het[6]}`)
+      week[0] === '2026-10-26' && week[6] === '2026-11-01', `${week[0]} … ${week[6]}`)
 
-    const honap = naptarNapjai('honap', '2026-10-15')
-    add('The month grid returns whole weeks', honap.length % 7 === 0, `${honap.length}`)
-    add('The month grid starts on Monday', hetNapja(honap[0]) === 0)
-    add('1 October is included', honap.includes('2026-10-01'))
-    add('31 October is included', honap.includes('2026-10-31'))
+    const month = calendarDays('monat', '2026-10-15')
+    add('The month grid returns whole weeks', month.length % 7 === 0, `${month.length}`)
+    add('The month grid starts on Monday', dayOfWeek(month[0]) === 0)
+    add('1 October is included', month.includes('2026-10-01'))
+    add('31 October is included', month.includes('2026-10-31'))
     add('The start of the grid reaches into the previous month',
-      !azonosHonap(honap[0], '2026-10-15') || honap[0] === '2026-10-01', honap[0])
+      !sameMonth(month[0], '2026-10-15') || month[0] === '2026-10-01', month[0])
   })
 
   await section("calendar: time bounds around the daylight saving change", async () => {
     // In Switzerland in 2026, clocks go back on 25 October.
-    const nyar = naptarHatarok('nap', '2026-10-20')
+    const summerDay = calendarBounds('tag', '2026-10-20')
     add('In summer time the day starts at 22:00 UTC',
-      nyar.tol.endsWith('T22:00:00.000Z'), nyar.tol)
-    const tel = naptarHatarok('nap', '2026-11-10')
+      summerDay.from.endsWith('T22:00:00.000Z'), summerDay.from)
+    const winterDay = calendarBounds('tag', '2026-11-10')
     add('In winter time, at 23:00 UTC',
-      tel.tol.endsWith('T23:00:00.000Z'), tel.tol)
+      winterDay.from.endsWith('T23:00:00.000Z'), winterDay.from)
     add('The end of a day is the start of the next',
-      new Date(tel.ig).getTime() - new Date(tel.tol).getTime() === 24 * 36e5,
-      `${(new Date(tel.ig).getTime() - new Date(tel.tol).getTime()) / 36e5} hours`)
+      new Date(winterDay.to).getTime() - new Date(winterDay.from).getTime() === 24 * 36e5,
+      `${(new Date(winterDay.to).getTime() - new Date(winterDay.from).getTime()) / 36e5} hours`)
 
     // The day the clocks change is 25 hours long
-    const atallas = naptarHatarok('nap', '2026-10-25')
-    const orak = (new Date(atallas.ig).getTime() - new Date(atallas.tol).getTime()) / 36e5
-    add('The day the clocks change is 25 hours long', orak === 25, `${orak} hours`)
+    const dstDay = calendarBounds('tag', '2026-10-25')
+    const lessons = (new Date(dstDay.to).getTime() - new Date(dstDay.from).getTime()) / 36e5
+    add('The day the clocks change is 25 hours long', lessons === 25, `${lessons} hours`)
   })
 
   await section("calendar: the query also covers the date strip", async () => {
     // In day view the strip shows the whole week and marks which days
     // have classes — which needs the week's data, not just the day's.
-    const napi = naptarLekerdezes('nap', '2026-10-29')
-    const het = naptarHatarok('het', '2026-10-29')
+    const daily = calendarQuery('tag', '2026-10-29')
+    const week = calendarBounds('woche', '2026-10-29')
     add('The day view queries the whole week',
-      napi.tol === het.tol && napi.ig === het.ig, `${napi.tol} … ${napi.ig}`)
+      daily.from === week.from && daily.to === week.to, `${daily.from} … ${daily.to}`)
 
     // In month view the month is the wider range, and must not be narrowed.
-    const havi = naptarLekerdezes('honap', '2026-10-15')
-    const honap = naptarHatarok('honap', '2026-10-15')
+    const monthly = calendarQuery('monat', '2026-10-15')
+    const month = calendarBounds('monat', '2026-10-15')
     add('The month view keeps the bounds of the month',
-      havi.tol === honap.tol && havi.ig === honap.ig, `${havi.tol} … ${havi.ig}`)
+      monthly.from === month.from && monthly.to === month.to, `${monthly.from} … ${monthly.to}`)
 
     // At the start of a month the strip's week can reach into the previous one.
-    const elsejen = naptarLekerdezes('nap', '2026-11-01')
+    const onTheFirst = calendarQuery('tag', '2026-11-01')
     add('The week of the strip still fits even when it crosses the month',
-      new Date(elsejen.tol) <= new Date(naptarHatarok('het', '2026-11-01').tol))
+      new Date(onTheFirst.from) <= new Date(calendarBounds('woche', '2026-11-01').from))
   })
 
   await section("calendar: paging", async () => {
-    add('Paging by day', naptarLepes('nap', '2026-10-29', 1) === '2026-10-30')
-    add('Paging by week', naptarLepes('het', '2026-10-29', 1) === '2026-11-05')
-    add('Paging a month forward', naptarLepes('honap', '2026-10-15', 1) === '2026-11-01')
-    add('Paging a month back', naptarLepes('honap', '2026-01-15', -1) === '2025-12-01')
+    add('Paging by day', calendarStep('tag', '2026-10-29', 1) === '2026-10-30')
+    add('Paging by week', calendarStep('woche', '2026-10-29', 1) === '2026-11-05')
+    add('Paging a month forward', calendarStep('monat', '2026-10-15', 1) === '2026-11-01')
+    add('Paging a month back', calendarStep('monat', '2026-01-15', -1) === '2025-12-01')
     add('Paging by month jumps to the first, not the 15th',
-      naptarLepes('honap', '2026-10-15', 1).endsWith('-01'))
+      calendarStep('monat', '2026-10-15', 1).endsWith('-01'))
   })
 
   await section("calendar: bad input does not break it", async () => {
-    const maKulcs = napKulcsVagyMa(undefined)
-    add('A missing date falls back to today', /^\d{4}-\d{2}-\d{2}$/.test(maKulcs), maKulcs)
-    add('Nonsense text falls back to today', napKulcsVagyMa('tegnap') === maKulcs)
-    add('A non-existent date falls back to today', napKulcsVagyMa('2026-02-30') === maKulcs)
-    add('A valid date is kept', napKulcsVagyMa('2026-10-29') === '2026-10-29')
-    add('An unknown view falls back to the week', naptarMod('zöldség') === 'het')
-    add('A known view is kept', naptarMod('honap') === 'honap')
+    const todayKey = dayKeyOrToday(undefined)
+    add('A missing date falls back to today', /^\d{4}-\d{2}-\d{2}$/.test(todayKey), todayKey)
+    add('Nonsense text falls back to today', dayKeyOrToday('tegnap') === todayKey)
+    add('A non-existent date falls back to today', dayKeyOrToday('2026-02-30') === todayKey)
+    add('A valid date is kept', dayKeyOrToday('2026-10-29') === '2026-10-29')
+    add('An unknown view falls back to the week', calendarView('nonsense') === 'woche')
+    add('A known view is kept', calendarView('monat') === 'monat')
   })
 
   await section("calendar: a class lands on the correct day", async () => {
     // A Swiss class starting at 00:30 is still on the previous day in UTC.
-    const ejfelUtan = zoneToUtc(2026, 11, 10, 0, 30)
+    const afterMidnight = zoneToUtc(2026, 11, 10, 0, 30)
     add('A class just after midnight lands on its own day',
-      napKulcs(ejfelUtan) === '2026-11-10', napKulcs(ejfelUtan))
-    const estiOra = zoneToUtc(2026, 11, 10, 23, 30)
+      dayKey(afterMidnight) === '2026-11-10', dayKey(afterMidnight))
+    const eveningLesson = zoneToUtc(2026, 11, 10, 23, 30)
     add('A late evening class lands on its own day too',
-      napKulcs(estiOra) === '2026-11-10', napKulcs(estiOra))
+      dayKey(eveningLesson) === '2026-11-10', dayKey(eveningLesson))
   })
 
   await section("customer profile: past, future, contact details", async () => {
@@ -1459,45 +1459,45 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     // A class they already attended. The booking is made in the
     // future, then the class moves into the past — which is how it
     // happens in reality: time passes.
-    const volt = await mkSession(c, { hours: 48 })
-    const r1 = await createBooking(payload, u.id, volt.id)
-    const mult = new Date(Date.now() - 48 * 36e5).toISOString()
-    await payload.update({ collection: 'sessions', id: volt.id, data: { startsAt: mult } })
+    const pastSession = await mkSession(c, { hours: 48 })
+    const r1 = await createBooking(payload, u.id, pastSession.id)
+    const past = new Date(Date.now() - 48 * 36e5).toISOString()
+    await payload.update({ collection: 'sessions', id: pastSession.id, data: { startsAt: past } })
     if (r1.ok) await markAttendance(payload, r1.bookingId, 'attended')
 
     // One class they are coming to, and one they cancelled.
-    const jon = await mkSession(c, { hours: 72 })
-    await createBooking(payload, u.id, jon.id)
-    const lemondott = await mkSession(c, { hours: 96 })
-    const r3 = await createBooking(payload, u.id, lemondott.id)
+    const comingSession = await mkSession(c, { hours: 72 })
+    await createBooking(payload, u.id, comingSession.id)
+    const cancelledSession = await mkSession(c, { hours: 96 })
+    const r3 = await createBooking(payload, u.id, cancelledSession.id)
     if (r3.ok) await cancelBooking(payload, u.id, r3.bookingId)
 
-    const p = (await kundeProfil(payload, u.id))!
-    add('Profil wird geladen', Boolean(p))
-    add('Telefonnummer steht im Profil', p.kunde.phone === '079 000 00 00')
-    add('Gesundheitlicher Hinweis steht im Profil',
-      String(p.kunde.healthNotes).includes('Rücken'))
-    add('Besuchte Lektion erscheint in der Vergangenheit',
-      p.korabbi.some((o) => o.sessionId === volt.id && o.allapot === 'attended'),
-      JSON.stringify(p.korabbi.map((o) => [o.sessionId, o.allapot])))
-    add('Lektion mit Titel, nicht nur Datum', p.korabbi[0]?.cim.length > 0, p.korabbi[0]?.cim)
-    add('Kommende Lektion erscheint unter „angemeldet für“',
-      p.jovobeli.some((o) => o.sessionId === jon.id))
-    add('Stornierte kommende Lektion erscheint NICHT',
-      !p.jovobeli.some((o) => o.sessionId === lemondott.id),
-      JSON.stringify(p.jovobeli.map((o) => o.sessionId)))
-    add('Guthaben wird zusammengezählt', p.kreditOsszesen === 2, String(p.kreditOsszesen))
-    add('Besuchsstatistik zählt die Anwesenheit', p.megbizhatosag.attended === 1,
-      String(p.megbizhatosag.attended))
+    const p = (await customerProfile(payload, u.id))!
+    add('The profile loads', Boolean(p))
+    add('The phone number is on the profile', p.customer.phone === '079 000 00 00')
+    add('The health note is on the profile',
+      String(p.customer.healthNotes).includes('Rücken'))
+    add('An attended class shows up in the past',
+      p.past.some((o) => o.sessionId === pastSession.id && o.status === 'attended'),
+      JSON.stringify(p.past.map((o) => [o.sessionId, o.status])))
+    add('The class has a title, not only a date', p.past[0]?.title.length > 0, p.past[0]?.title)
+    add('An upcoming class shows under “booked for”',
+      p.upcoming.some((o) => o.sessionId === comingSession.id))
+    add('A cancelled upcoming class does NOT show',
+      !p.upcoming.some((o) => o.sessionId === cancelledSession.id),
+      JSON.stringify(p.upcoming.map((o) => o.sessionId)))
+    add('Credits are added up', p.creditsTotal === 2, String(p.creditsTotal))
+    add('The attendance stats count the turnout', p.reliability.attended === 1,
+      String(p.reliability.attended))
 
-    const talalt = await kundeLista(payload, 'Profil')
-    add('Suche findet die Person über den Namen', talalt.some((x) => x.id === u.id))
-    add('Liste zeigt nur, DASS ein Hinweis da ist',
-      talalt.find((x) => x.id === u.id)?.egeszseg === true &&
-      !JSON.stringify(talalt).includes('Rücken'))
-    add('Suche ohne Treffer gibt leere Liste',
-      (await kundeLista(payload, 'Zzzz-gibt-es-nicht')).length === 0)
-    add('Unbekannte Person gibt null', (await kundeProfil(payload, 999999)) === null)
+    const found = await customerList(payload, 'Profil')
+    add('The search finds the person by name', found.some((x) => x.id === u.id))
+    add('The list shows only THAT there is a note',
+      found.find((x) => x.id === u.id)?.health === true &&
+      !JSON.stringify(found).includes('Rücken'))
+    add('A search with no hits gives an empty list',
+      (await customerList(payload, 'Zzzz-does-not-exist')).length === 0)
+    add('An unknown person gives null', (await customerProfile(payload, 999999)) === null)
   })
 
   await reset(payload)

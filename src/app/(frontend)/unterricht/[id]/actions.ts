@@ -6,7 +6,7 @@ import { getClient } from '@/lib/booking'
 import { getCurrentUser } from '@/lib/auth'
 import { markAttendance, closeSession } from '@/lib/attendance'
 import { cancelSessionByStudio, cancelForTooFewParticipants } from '@/lib/studio'
-import { deleteSession } from '@/lib/ora'
+import { deleteSession } from '@/lib/lesson'
 
 const idOf = (v: unknown): number =>
   typeof v === 'object' && v !== null ? (v as { id: number }).id : (v as number)
@@ -76,7 +76,7 @@ export async function cancelLesson(formData: FormData) {
   const { payload } = await authorize(sessionId)
 
   if (!reason) {
-    redirect(`/unterricht/${sessionId}?fehler=${'hiba.indok_kell'}`)
+    redirect(`/unterricht/${sessionId}?fehler=${'error.reason_required'}`)
   }
 
   const r = await cancelSessionByStudio(payload, sessionId, reason)

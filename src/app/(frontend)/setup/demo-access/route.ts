@@ -10,7 +10,7 @@ import config from '@payload-config'
  * This account is an ordinary customer with credits — it sees exactly
  * what a guest sees.
  *
- *   curl -X POST http://localhost:3000/setup/demo-zugang \
+ *   curl -X POST http://localhost:3000/setup/demo-access \
  *     -H 'content-type: application/json' -d '{"password":"..."}'
  *
  * Re-runnable: if the account exists, it only resets the password and
@@ -25,7 +25,7 @@ const EMAIL = 'kundin@demo.studio-lumen.ch'
  * owner's: she creates and deletes classes, releases pass orders, and
  * sees everybody's bookings.
  */
-const OKTATO_EMAIL = 'nadine@team.studio-lumen.ch'
+const INSTRUCTOR_EMAIL = 'nadine@team.studio-lumen.ch'
 
 export async function POST(request: Request) {
   if (process.env.ALLOW_SEED !== 'true') {
@@ -44,10 +44,10 @@ export async function POST(request: Request) {
   try {
     const payload = await getPayload({ config })
 
-    const talalat = await payload.find({
+    const match = await payload.find({
       collection: 'users', where: { email: { equals: EMAIL } }, limit: 1, depth: 0,
     })
-    let user: any = (talalat.docs as any[])[0]
+    let user: any = (match.docs as any[])[0]
 
     if (user) {
       await payload.update({ collection: 'users', id: user.id, data: { password } })
@@ -66,26 +66,26 @@ export async function POST(request: Request) {
     const aboType: any = (await payload.find({
       collection: 'abo-types', where: { name: { equals: '10er Abo' } }, limit: 1, depth: 0,
     })).docs[0]
-    const megvan = await payload.find({
+    const found = await payload.find({
       collection: 'abos',
       where: { and: [{ customer: { equals: user.id } }, { status: { equals: 'active' } }] },
       limit: 1, depth: 0,
     })
-    const letezo: any = (megvan.docs as any[])[0]
-    const lejar = new Date()
-    lejar.setMonth(lejar.getMonth() + 7)
+    const existing: any = (found.docs as any[])[0]
+    const expires = new Date()
+    expires.setMonth(expires.getMonth() + 7)
 
-    if (letezo) {
+    if (existing) {
       await payload.update({
-        collection: 'abos', id: letezo.id,
-        data: { creditsRemaining: 10, expiresAt: lejar.toISOString() },
+        collection: 'abos', id: existing.id,
+        data: { creditsRemaining: 10, expiresAt: expires.toISOString() },
       })
     } else if (aboType) {
       await payload.create({
         collection: 'abos',
         data: {
           customer: user.id, aboType: aboType.id, creditsRemaining: 10,
-          purchasedAt: new Date().toISOString(), expiresAt: lejar.toISOString(),
+          purchasedAt: new Date().toISOString(), expiresAt: expires.toISOString(),
           status: 'active', paymentMethod: 'on_site', paidAt: new Date().toISOString(),
         },
       })
@@ -102,30 +102,30 @@ export async function POST(request: Request) {
      * try out, because it says the most: whether the owner can run the
      * system herself.
      */
-    const oktato: any = (await payload.find({
-      collection: 'users', where: { email: { equals: OKTATO_EMAIL } }, limit: 1, depth: 0,
+    const instructor: any = (await payload.find({
+      collection: 'users', where: { email: { equals: INSTRUCTOR_EMAIL } }, limit: 1, depth: 0,
     })).docs[0]
-    let stabFiok: string | null = null
-    if (oktato) {
+    let staffAccount: string | null = null
+    if (instructor) {
       await payload.update({
-        collection: 'users', id: oktato.id,
+        collection: 'users', id: instructor.id,
         data: { password, role: 'admin', language: 'de' },
       })
       // Read it back: the role field has its own write restriction,
       // and a change that silently fails would take away exactly what
       // this call exists for. This is how the caller sees whether it
       // worked.
-      const ellenor: any = await payload.findByID({
-        collection: 'users', id: oktato.id, depth: 0,
+      const probe: any = await payload.findByID({
+        collection: 'users', id: instructor.id, depth: 0,
       })
-      stabFiok = `${ellenor.email} (${ellenor.role}, ${ellenor.language})`
+      staffAccount = `${probe.email} (${probe.role}, ${probe.language})`
     }
 
     return Response.json({
       ok: true,
-      stab: stabFiok,
-      kundin: EMAIL,
-      studio: oktato ? OKTATO_EMAIL : null,
+      staff: staffAccount,
+      customer: EMAIL,
+      studio: instructor ? INSTRUCTOR_EMAIL : null,
       credits: 10,
     })
   } catch (e) {

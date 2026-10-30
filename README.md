@@ -149,6 +149,23 @@ cities. Those are data, not interface text; making them bilingual would mean an
 English field on the collections. That is a product decision, not an unfinished
 one.
 
+### Which language goes where
+
+The project keeps one rule, because a mixed codebase is a reader's tax:
+
+- **The code is English** — identifiers, file names, CSS classes, comments,
+  dictionary keys (`class.free_of_total`), test labels, the `/setup/*`
+  responses.
+- **The product is German** — the interface text, the Payload admin labels,
+  the seeded data, and the URLs: `/buchen`, `/kunden`, `/unterricht`,
+  `?ansicht=woche`, `?fehler=…`. English speakers get the same system through
+  the dictionary and `/en`, not through a second set of URLs.
+
+So a German string in this codebase is either something a customer reads or
+something the owner reads in the admin area. Everything else is English. The
+one deliberate exception is the vocabulary the studio itself uses as data —
+`abo`, `storniert`, `no_show` — which are stored values, not prose.
+
 ## A bug worth recording: the owner among the customers
 
 `nadine@demo.studio-lumen.ch` is the address of **Nadine Hofer's instructor
@@ -396,9 +413,9 @@ curl -X POST $BASE/setup/seed                               # studios, machines,
 curl -X POST $BASE/setup/teachers     -H "$J" -d "{\"password\":\"$PW\"}"
 curl -X POST $BASE/setup/sessions                           # the schedule — needs an instructor, hence after teachers
 curl -X POST $BASE/setup/teachers     -H "$J" -d "{\"password\":\"$PW\"}"   # share the classes out now that they exist
-curl -X POST $BASE/setup/demo-zugang  -H "$J" -d "{\"password\":\"$PW\"}"   # the two demo logins, with admin rights
+curl -X POST $BASE/setup/demo-access  -H "$J" -d "{\"password\":\"$PW\"}"   # the two demo logins, with admin rights
 curl -X POST $BASE/setup/demo-data    -H "$J" -d "{\"password\":\"$PW\"}"   # bookings, full classes, waitlist
-curl -X POST $BASE/setup/demo-profilok                      # health note, Young Member, mat customer
+curl -X POST $BASE/setup/demo-profiles                      # health note, Young Member, mat customer
 curl      $BASE/setup/demo-check                            # is the demo ready
 ```
 

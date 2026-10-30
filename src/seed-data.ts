@@ -140,7 +140,7 @@ export const seedSessions = async (payload: any) => {
     where: { role: { in: ['admin', 'instructor'] } },
     limit: 5, depth: 0,
   })
-  if (!reformerType || !instructors.docs.length) return 'fehlende Grunddaten'
+  if (!reformerType || !instructors.docs.length) return 'missing base data'
 
   /*
    * Classes are handed to the instructors in rotation. Without this
@@ -149,8 +149,8 @@ export const seedSessions = async (payload: any) => {
    * shows that Elin teaches in English and the others in both German
    * and English.
    */
-  const oktatok = instructors.docs as any[]
-  let kovetkezo = 0
+  const instructorList = instructors.docs as any[]
+  let next = 0
   let created = 0
 
   for (let day = 1; day <= 14; day++) {
@@ -181,7 +181,7 @@ export const seedSessions = async (payload: any) => {
           data: {
             classType: reformerType.id,
             studio: studio.id,
-            instructor: oktatok[kovetkezo++ % oktatok.length].id,
+            instructor: instructorList[next++ % instructorList.length].id,
             startsAt: start.toISOString(),
             durationMinutes: 60,
             status: 'scheduled',

@@ -3,9 +3,9 @@ import { redirect } from 'next/navigation'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { getCurrentUser } from '@/lib/auth'
-import { kundeLista } from '@/lib/kunde'
+import { customerList } from '@/lib/customer'
 import { getLang } from '@/lib/lang'
-import { forditó } from '@/lib/i18n'
+import { translator } from '@/lib/i18n'
 import { logout } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
@@ -20,80 +20,80 @@ type Search = Promise<{ q?: string }>
  * for the studio calendar: four of them teach and they cover for each
  * other, and whoever steps in also needs to reach the customer.
  */
-export default async function Kunden({ searchParams }: { searchParams: Search }) {
+export default async function Customers({ searchParams }: { searchParams: Search }) {
   const { q } = await searchParams
   const user = await getCurrentUser()
   if (!user) redirect('/login?next=/kunden')
   if (user.role !== 'instructor' && user.role !== 'admin') redirect('/konto')
 
   const lang = await getLang(user)
-  const t = forditó(lang)
+  const t = translator(lang)
   const payload = await getPayload({ config })
 
-  const lista = await kundeLista(payload, q)
+  const list = await customerList(payload, q)
 
   return (
     <main className="shell wide">
       <header className="page-head">
         <div>
-          <p className="eyebrow">{t('kunde.eyebrow')}</p>
-          <h1>{t('kunde.lista_cim')}</h1>
+          <p className="eyebrow">{t('customer.eyebrow')}</p>
+          <h1>{t('customer.list_title')}</h1>
         </div>
         <div className="who">
-          <Link href="/unterricht">{t('kozos.unterricht')}</Link>
+          <Link href="/unterricht">{t('common.teaching')}</Link>
           <span aria-hidden="true"> · </span>
           <form action={logout} style={{ display: 'inline' }}>
-            <button type="submit" className="linkish">{t('kozos.abmelden_kicsi')}</button>
+            <button type="submit" className="linkish">{t('common.sign_out_lower')}</button>
           </form>
         </div>
       </header>
 
-      <p className="lead">{t('kunde.lista_lead')}</p>
+      <p className="lead">{t('customer.list_lead')}</p>
 
-      <form className="kereso" action="/kunden" method="get">
+      <form className="search" action="/kunden" method="get">
         <input
           type="search"
           name="q"
           defaultValue={q ?? ''}
-          placeholder={t('kunde.kereses')}
-          aria-label={t('kunde.kereses')}
+          placeholder={t('customer.search_placeholder')}
+          aria-label={t('customer.search_placeholder')}
         />
-        <button className="btn ghost" type="submit">{t('kunde.keres_gomb')}</button>
-        {q && <Link href="/kunden" className="linkish">{t('kunde.keres_torles')}</Link>}
+        <button className="btn ghost" type="submit">{t('customer.search_button')}</button>
+        {q && <Link href="/kunden" className="linkish">{t('customer.search_clear')}</Link>}
       </form>
 
-      {lista.length === 0 ? (
-        <p className="empty">{q ? t('kunde.nincs_talalat') : t('kunde.senki')}</p>
+      {list.length === 0 ? (
+        <p className="empty">{q ? t('customer.no_match') : t('customer.nobody')}</p>
       ) : (
         <>
           <p className="hint">
-            {lista.length === 1 ? t('kunde.db_egy') : t('kunde.db', { db: lista.length })}
+            {list.length === 1 ? t('customer.count_one') : t('customer.count', { count: list.length })}
           </p>
-          <div className="tabla-keret">
+          <div className="table-frame">
             <table className="list">
               <thead>
                 <tr>
-                  <th>{t('kunde.fej_nev')}</th>
-                  <th>{t('kunde.fej_kontakt')}</th>
-                  <th>{t('kunde.fej_hinweise')}</th>
+                  <th>{t('customer.col_name')}</th>
+                  <th>{t('customer.col_contact')}</th>
+                  <th>{t('customer.col_notes')}</th>
                 </tr>
               </thead>
               <tbody>
-                {lista.map((k) => (
+                {list.map((k) => (
                   <tr key={k.id}>
-                    <td><Link href={`/kunden/${k.id}`}>{k.nev}</Link></td>
+                    <td><Link href={`/kunden/${k.id}`}>{k.name}</Link></td>
                     <td>
                       <a href={`mailto:${k.email}`}>{k.email}</a>
-                      {k.telefon && <><br /><a href={`tel:${k.telefon}`}>{k.telefon}</a></>}
+                      {k.phone && <><br /><a href={`tel:${k.phone}`}>{k.phone}</a></>}
                     </td>
                     <td>
                       {/* The note's content is only visible on the profile. */}
-                      {k.egeszseg && (
-                        <span className="tag egeszseg">{t('kunde.van_egeszseg')}</span>
+                      {k.health && (
+                        <span className="tag health">{t('customer.has_health_note')}</span>
                       )}
-                      {k.mattenKunde && <span className="tag">{t('oktora.jelzes_matten')}</span>}
-                      {k.youngMember && <span className="tag">{t('oktora.jelzes_young')}</span>}
-                      {!k.egeszseg && !k.mattenKunde && !k.youngMember && '—'}
+                      {k.matCustomer && <span className="tag">{t('lesson.tag_mat')}</span>}
+                      {k.youngMember && <span className="tag">{t('lesson.tag_young')}</span>}
+                      {!k.health && !k.matCustomer && !k.youngMember && '—'}
                     </td>
                   </tr>
                 ))}

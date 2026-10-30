@@ -2,10 +2,10 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 import { seedSessions } from '@/seed-data'
 
-/** Teszt-órarend felvétele. Csak ALLOW_SEED=true mellett. */
+/** Creates a test schedule. Only with ALLOW_SEED=true. */
 export async function POST() {
   if (process.env.ALLOW_SEED !== 'true') {
-    return Response.json({ error: 'Seed ist deaktiviert.' }, { status: 403 })
+    return Response.json({ error: 'Seeding is disabled.' }, { status: 403 })
   }
   try {
     const payload = await getPayload({ config })

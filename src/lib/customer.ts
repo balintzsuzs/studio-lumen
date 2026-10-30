@@ -17,39 +17,39 @@ import { isYoungMember } from './abo'
  * single moment, and asking twice could let it drift in between.
  */
 
-export type KundeOra = {
+export type CustomerLesson = {
   bookingId: number
   sessionId: number
   /** Start time, ISO. */
-  kezdet: string
-  cim: string
-  oktato?: string
+  start: string
+  title: string
+  instructor?: string
   studio?: string
-  gep?: string
+  reformer?: string
   /** Booking status, as the raw value — the page supplies the wording. */
-  allapot: string
+  status: string
   /** For a cancellation: in time, late, or cancelled by the studio. */
-  lemondasTipus?: string
+  cancellationType?: string
 }
 
-export type KundeProfil = {
-  kunde: any
+export type CustomerProfile = {
+  customer: any
   /** Young Member derived from the birth year, not from a separate flag. */
   youngMember: boolean
-  abok: any[]
+  passes: any[]
   /** Total credits across the active passes. */
-  kreditOsszesen: number
+  creditsTotal: number
   /** Soonest class first. */
-  jovobeli: KundeOra[]
+  upcoming: CustomerLesson[]
   /** Most recent class first. */
-  korabbi: KundeOra[]
-  megbizhatosag: Reliability
+  past: CustomerLesson[]
+  reliability: Reliability
 }
 
 const idOf = (v: unknown): number =>
   typeof v === 'object' && v !== null ? (v as { id: number }).id : (v as number)
 
-const oraSor = (b: any): KundeOra | null => {
+const lessonRow = (b: any): CustomerLesson | null => {
   const s = b.session
   // If the relation did not come back as an object there is nothing to
   // show — a bare id gives neither a time nor a name.
@@ -57,32 +57,32 @@ const oraSor = (b: any): KundeOra | null => {
   return {
     bookingId: b.id,
     sessionId: s.id,
-    kezdet: s.startsAt,
-    cim: s.classType?.name ?? '',
-    oktato: s.instructor?.firstName ?? undefined,
+    start: s.startsAt,
+    title: s.classType?.name ?? '',
+    instructor: s.instructor?.firstName ?? undefined,
     studio: s.studio?.city ?? undefined,
-    gep: b.reformer?.label ?? undefined,
-    allapot: b.status,
-    lemondasTipus: b.cancellationType ?? undefined,
+    reformer: b.reformer?.label ?? undefined,
+    status: b.status,
+    cancellationType: b.cancellationType ?? undefined,
   }
 }
 
 /** One customer's profile. `null` if there is no such person. */
-export const kundeProfil = async (
+export const customerProfile = async (
   payload: Payload,
-  kundeId: number,
-): Promise<KundeProfil | null> => {
-  let kunde: any = null
+  customerId: number,
+): Promise<CustomerProfile | null> => {
+  let customer: any = null
   try {
-    kunde = await payload.findByID({ collection: 'users', id: kundeId, depth: 0 })
+    customer = await payload.findByID({ collection: 'users', id: customerId, depth: 0 })
   } catch {
     return null
   }
-  if (!kunde) return null
+  if (!customer) return null
 
-  const abok = await payload.find({
+  const passes = await payload.find({
     collection: 'abos',
-    where: { customer: { equals: kundeId } },
+    where: { customer: { equals: customerId } },
     sort: '-purchasedAt', limit: 50, depth: 1,
   })
 
@@ -92,49 +92,49 @@ export const kundeProfil = async (
    * type is another one. At one level we would get only ids, and the
    * list would show dates with no titles.
    */
-  const foglalasok = await payload.find({
+  const bookings = await payload.find({
     collection: 'bookings',
-    where: { customer: { equals: kundeId } },
+    where: { customer: { equals: customerId } },
     sort: '-bookedAt', limit: 500, depth: 2,
   })
 
-  const most = Date.now()
-  const jovobeli: KundeOra[] = []
-  const korabbi: KundeOra[] = []
-  for (const b of foglalasok.docs as any[]) {
-    const sor = oraSor(b)
-    if (!sor) continue
+  const now = Date.now()
+  const upcoming: CustomerLesson[] = []
+  const past: CustomerLesson[] = []
+  for (const b of bookings.docs as any[]) {
+    const row = lessonRow(b)
+    if (!row) continue
     // A cancelled booking is not future attendance: the person is not
     // coming. In the past it stays, because it is part of the record.
-    const jovo = new Date(sor.kezdet).getTime() > most
-    if (jovo && sor.allapot === 'cancelled') continue
-    ;(jovo ? jovobeli : korabbi).push(sor)
+    const future = new Date(row.start).getTime() > now
+    if (future && row.status === 'cancelled') continue
+    ;(future ? upcoming : past).push(row)
   }
-  jovobeli.sort((a, b) => a.kezdet.localeCompare(b.kezdet))
-  korabbi.sort((a, b) => b.kezdet.localeCompare(a.kezdet))
+  upcoming.sort((a, b) => a.start.localeCompare(b.start))
+  past.sort((a, b) => b.start.localeCompare(a.start))
 
-  const eloAbok = (abok.docs as any[]).filter((a) => a.status === 'active')
+  const livePasses = (passes.docs as any[]).filter((a) => a.status === 'active')
 
   return {
-    kunde,
-    youngMember: isYoungMember(kunde.birthYear),
-    abok: abok.docs as any[],
-    kreditOsszesen: eloAbok.reduce((ossz, a) => ossz + (a.creditsRemaining ?? 0), 0),
-    jovobeli,
-    korabbi,
-    megbizhatosag: await getReliability(payload, kundeId),
+    customer,
+    youngMember: isYoungMember(customer.birthYear),
+    passes: passes.docs as any[],
+    creditsTotal: livePasses.reduce((sum, a) => sum + (a.creditsRemaining ?? 0), 0),
+    upcoming,
+    past,
+    reliability: await getReliability(payload, customerId),
   }
 }
 
-export type KundeSor = {
+export type CustomerRow = {
   id: number
-  nev: string
+  name: string
   email: string
-  telefon?: string
+  phone?: string
   /** Whether a health note exists — its content is not shown in the list. */
-  egeszseg: boolean
+  health: boolean
   youngMember: boolean
-  mattenKunde: boolean
+  matCustomer: boolean
 }
 
 /**
@@ -146,12 +146,12 @@ export type KundeSor = {
  * full text lives on the profile and on the class register, where the
  * instructor is dealing with that one person.
  */
-export const kundeLista = async (
+export const customerList = async (
   payload: Payload,
-  kereses?: string,
-): Promise<KundeSor[]> => {
+  search?: string,
+): Promise<CustomerRow[]> => {
   const and: any[] = [{ role: { equals: 'customer' } }]
-  const q = kereses?.trim()
+  const q = search?.trim()
   if (q) and.push({ or: [{ fullName: { like: q } }, { email: { like: q } }] })
 
   const r = await payload.find({
@@ -162,12 +162,12 @@ export const kundeLista = async (
 
   return (r.docs as any[]).map((u) => ({
     id: u.id,
-    nev: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
+    name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
     email: u.email,
-    telefon: u.phone || undefined,
-    egeszseg: Boolean(u.healthNotes),
+    phone: u.phone || undefined,
+    health: Boolean(u.healthNotes),
     youngMember: isYoungMember(u.birthYear),
-    mattenKunde: Boolean(u.isMatCustomer),
+    matCustomer: Boolean(u.isMatCustomer),
   }))
 }
 

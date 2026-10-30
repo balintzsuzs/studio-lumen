@@ -1,6 +1,6 @@
 import 'server-only'
 import type { Payload } from 'payload'
-import type { HibaKulcs } from './i18n'
+import type { ErrorKey } from './i18n'
 import { zoneToUtc } from './series'
 
 /**
@@ -13,52 +13,52 @@ import { zoneToUtc } from './series'
  * them do not explain themselves.
  */
 
-export type UjOra = {
+export type NewLesson = {
   /** 'YYYY-MM-DD', Swiss calendar day. */
-  nap: string
+  day: string
   /** 'HH:MM', Swiss local time. */
-  ido: string
+  time: string
   classTypeId: number
   studioId: number
   instructorId: number
-  perc: number
+  minutes: number
   /** Left empty: the instructor's own languages apply. */
-  nyelvek?: ('de' | 'en')[]
-  megjegyzes?: string
+  languages?: ('de' | 'en')[]
+  note?: string
 }
 
-const NAP = /^\d{4}-\d{2}-\d{2}$/
-const IDO = /^([01]\d|2[0-3]):[0-5]\d$/
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
+const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/
 
 export const createSession = async (
   payload: Payload,
-  ora: UjOra,
+  lesson: NewLesson,
   now = new Date(),
-): Promise<{ ok: true; sessionId: number } | { ok: false; reason: HibaKulcs }> => {
-  if (!NAP.test(ora.nap) || !IDO.test(ora.ido)) return { ok: false, reason: 'hiba.ora_ervenytelen_idopont' }
-  if (!(ora.perc > 0) || ora.perc > 300) return { ok: false, reason: 'hiba.ora_ervenytelen_hossz' }
+): Promise<{ ok: true; sessionId: number } | { ok: false; reason: ErrorKey }> => {
+  if (!DATE_RE.test(lesson.day) || !TIME_RE.test(lesson.time)) return { ok: false, reason: 'error.class_invalid_time' }
+  if (!(lesson.minutes > 0) || lesson.minutes > 300) return { ok: false, reason: 'error.class_invalid_duration' }
 
-  const [y, m, d] = ora.nap.split('-').map(Number)
-  const [hh, mm] = ora.ido.split(':').map(Number)
+  const [y, m, d] = lesson.day.split('-').map(Number)
+  const [hh, mm] = lesson.time.split(':').map(Number)
   // Entered in Swiss local time, stored in UTC — the same rule as for
   // series, otherwise it would slip by an hour across the daylight
   // saving boundary.
-  const kezdet = zoneToUtc(y, m, d, hh, mm)
+  const start = zoneToUtc(y, m, d, hh, mm)
 
   // A class created in the past helps nobody: it cannot be booked, and
   // closing would immediately mark everyone present — including people
   // who were never there.
-  if (kezdet <= now) return { ok: false, reason: 'hiba.ora_a_multban' }
+  if (start <= now) return { ok: false, reason: 'error.class_in_past' }
 
   // The instructor must actually be one, and the studio and type must exist.
-  const [oktato, studio, tipus] = await Promise.all([
-    payload.findByID({ collection: 'users', id: ora.instructorId, depth: 0 }).catch(() => null),
-    payload.findByID({ collection: 'studios', id: ora.studioId, depth: 0 }).catch(() => null),
-    payload.findByID({ collection: 'class-types', id: ora.classTypeId, depth: 0 }).catch(() => null),
+  const [instructor, studio, type] = await Promise.all([
+    payload.findByID({ collection: 'users', id: lesson.instructorId, depth: 0 }).catch(() => null),
+    payload.findByID({ collection: 'studios', id: lesson.studioId, depth: 0 }).catch(() => null),
+    payload.findByID({ collection: 'class-types', id: lesson.classTypeId, depth: 0 }).catch(() => null),
   ])
-  if (!studio || !tipus) return { ok: false, reason: 'hiba.ora_hianyzo_adat' }
-  if (!oktato || ((oktato as any).role !== 'instructor' && (oktato as any).role !== 'admin'))
-    return { ok: false, reason: 'hiba.ora_nem_oktato' }
+  if (!studio || !type) return { ok: false, reason: 'error.class_missing_data' }
+  if (!instructor || ((instructor as any).role !== 'instructor' && (instructor as any).role !== 'admin'))
+    return { ok: false, reason: 'error.not_an_instructor' }
 
   /*
    * Clash: the same instructor, in the same minute. The bottleneck is
@@ -66,30 +66,30 @@ export const createSession = async (
    * this check a mistyped date would put two classes at the same time,
    * and only the customers would notice.
    */
-  const utkozes = await payload.find({
+  const conflict = await payload.find({
     collection: 'sessions',
     where: {
       and: [
-        { instructor: { equals: ora.instructorId } },
-        { startsAt: { equals: kezdet.toISOString() } },
+        { instructor: { equals: lesson.instructorId } },
+        { startsAt: { equals: start.toISOString() } },
         { status: { equals: 'scheduled' } },
       ],
     },
     limit: 1, depth: 0,
   })
-  if (utkozes.totalDocs > 0) return { ok: false, reason: 'hiba.ora_utkozik' }
+  if (conflict.totalDocs > 0) return { ok: false, reason: 'error.class_conflict' }
 
   const created = await payload.create({
     collection: 'sessions',
     data: {
-      classType: ora.classTypeId,
-      studio: ora.studioId,
-      instructor: ora.instructorId,
-      startsAt: kezdet.toISOString(),
-      durationMinutes: ora.perc,
+      classType: lesson.classTypeId,
+      studio: lesson.studioId,
+      instructor: lesson.instructorId,
+      startsAt: start.toISOString(),
+      durationMinutes: lesson.minutes,
       status: 'scheduled',
-      ...(ora.nyelvek?.length ? { languages: ora.nyelvek } : {}),
-      ...(ora.megjegyzes ? { note: ora.megjegyzes } : {}),
+      ...(lesson.languages?.length ? { languages: lesson.languages } : {}),
+      ...(lesson.note ? { note: lesson.note } : {}),
     },
   })
   return { ok: true, sessionId: (created as any).id }
@@ -109,16 +109,16 @@ export const createSession = async (
 export const deleteSession = async (
   payload: Payload,
   sessionId: number,
-): Promise<{ ok: true } | { ok: false; reason: HibaKulcs }> => {
+): Promise<{ ok: true } | { ok: false; reason: ErrorKey }> => {
   let session: any = null
   try {
     session = await payload.findByID({ collection: 'sessions', id: sessionId, depth: 0 })
   } catch {
-    return { ok: false, reason: 'hiba.ora_nem_talalhato' }
+    return { ok: false, reason: 'error.class_not_found' }
   }
-  if (!session) return { ok: false, reason: 'hiba.ora_nem_talalhato' }
+  if (!session) return { ok: false, reason: 'error.class_not_found' }
 
-  const elo = await payload.find({
+  const live = await payload.find({
     collection: 'bookings',
     where: {
       and: [
@@ -128,24 +128,24 @@ export const deleteSession = async (
     },
     limit: 1, depth: 0,
   })
-  if (elo.totalDocs > 0) return { ok: false, reason: 'hiba.ora_van_jelentkezo' }
+  if (live.totalDocs > 0) return { ok: false, reason: 'error.class_has_registrations' }
 
   // Cancelled bookings and waitlist entries can go with it: on their
   // own they mean nothing.
-  const maradek = await payload.find({
+  const remaining = await payload.find({
     collection: 'bookings',
     where: { session: { equals: sessionId } },
     limit: 200, depth: 0,
   })
-  for (const b of maradek.docs as any[]) {
+  for (const b of remaining.docs as any[]) {
     await payload.delete({ collection: 'bookings', id: b.id })
   }
-  const varok = await payload.find({
+  const waitingEntries = await payload.find({
     collection: 'waitlist-entries',
     where: { session: { equals: sessionId } },
     limit: 200, depth: 0,
   })
-  for (const w of varok.docs as any[]) {
+  for (const w of waitingEntries.docs as any[]) {
     await payload.delete({ collection: 'waitlist-entries', id: w.id })
   }
 

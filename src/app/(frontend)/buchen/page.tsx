@@ -4,12 +4,12 @@ import config from '@payload-config'
 import type { Where } from 'payload'
 import { getCurrentUser } from '@/lib/auth'
 import { maybeTick } from '@/lib/waitlist'
-import { getTeltseg } from '@/lib/booking'
+import { getOccupancy } from '@/lib/booking'
 import { languageLabel } from '@/lib/format'
 import { getLang } from '@/lib/lang'
-import { forditó } from '@/lib/i18n'
-import { naptarMod, napKulcsVagyMa, naptarLekerdezes, napKulcs } from '@/lib/naptar'
-import Naptar, { type NaptarEsemeny } from '../components/Naptar'
+import { translator } from '@/lib/i18n'
+import { calendarView, dayKeyOrToday, calendarQuery, dayKey } from '@/lib/calendar'
+import Calendar, { type CalendarEvent } from '../components/Calendar'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,15 +20,15 @@ export default async function Schedule({ searchParams }: { searchParams: Search 
   const payload = await getPayload({ config })
   const user = await getCurrentUser()
   const lang = await getLang(user)
-  const t = forditó(lang)
+  const t = translator(lang)
 
   // Expiring and issuing waitlist offers gets its beat here, because
   // on Vercel's free plan the cron runs only once a day.
   await maybeTick(payload)
 
-  const mod = naptarMod(ansicht)
-  const horgony = napKulcsVagyMa(datum)
-  const { tol, ig } = naptarLekerdezes(mod, horgony)
+  const view = calendarView(ansicht)
+  const anchor = dayKeyOrToday(datum)
+  const { from, to } = calendarQuery(view, anchor)
 
   const studios = await payload.find({ collection: 'studios', limit: 10, depth: 0, sort: 'city' })
 
@@ -39,19 +39,19 @@ export default async function Schedule({ searchParams }: { searchParams: Search 
    * seems to have vanished.
    */
   const and: Where[] = [
-    { startsAt: { greater_than_equal: tol } },
-    { startsAt: { less_than: ig } },
+    { startsAt: { greater_than_equal: from } },
+    { startsAt: { less_than: to } },
   ]
   if (studio) and.push({ studio: { equals: Number(studio) } })
 
   const sessions = await payload.find({
     collection: 'sessions', where: { and }, sort: 'startsAt', limit: 300, depth: 1,
   })
-  const orak = sessions.docs as any[]
+  const lessons = sessions.docs as any[]
 
-  const teltseg = await getTeltseg(
+  const occupancy = await getOccupancy(
     payload,
-    orak.map((s) => ({ id: s.id, studio: s.studio })),
+    lessons.map((s) => ({ id: s.id, studio: s.studio })),
   )
 
   /*
@@ -60,35 +60,35 @@ export default async function Schedule({ searchParams }: { searchParams: Search 
    * is coming. So the rows lead into the studio view — the same class,
    * seen from the side that matches their job.
    */
-  const stab = user?.role === 'instructor' || user?.role === 'admin'
+  const staff = user?.role === 'instructor' || user?.role === 'admin'
 
-  const most = Date.now()
-  const esemenyek: NaptarEsemeny[] = orak.map((s) => {
-    const tt = teltseg.get(s.id)
-    const elmult = new Date(s.startsAt).getTime() <= most
-    const lemondva = s.status === 'cancelled'
+  const now = Date.now()
+  const events: CalendarEvent[] = lessons.map((s) => {
+    const tt = occupancy.get(s.id)
+    const past = new Date(s.startsAt).getTime() <= now
+    const cancelled = s.status === 'cancelled'
     return {
       id: s.id,
-      kezdet: s.startsAt,
-      nap: napKulcs(s.startsAt),
-      perc: s.durationMinutes,
-      cim: s.classType?.name ?? '',
+      start: s.startsAt,
+      day: dayKey(s.startsAt),
+      minutes: s.durationMinutes,
+      title: s.classType?.name ?? '',
       also: [s.instructor?.firstName, s.studio?.city].filter(Boolean).join(' · '),
-      harmadik: languageLabel(s) || undefined,
-      jeloles:
-        lemondva || !tt
+      third: languageLabel(s) || undefined,
+      marker:
+        cancelled || !tt
           ? undefined
-          : tt.szabad === 0
-            ? t('naptar.ausgebucht')
-            : t('naptar.frei', { db: tt.szabad }),
-      telt: Boolean(tt && tt.szabad === 0) && !lemondva,
-      lemondva: lemondva || elmult,
+          : tt.free === 0
+            ? t('calendar.fully_booked')
+            : t('calendar.free_count', { count: tt.free }),
+      full: Boolean(tt && tt.free === 0) && !cancelled,
+      cancelled: cancelled || past,
       // There is nothing to book on a cancelled or finished class, and
       // the button would only mislead.
-      gomb: stab
-        ? t('naptar.ansehen')
-        : lemondva || elmult ? undefined : t('naptar.buchen'),
-      href: stab ? `/unterricht/${s.id}` : `/buchen/${s.id}`,
+      button: staff
+        ? t('calendar.open')
+        : cancelled || past ? undefined : t('calendar.book'),
+      href: staff ? `/unterricht/${s.id}` : `/buchen/${s.id}`,
     }
   })
 
@@ -96,40 +96,40 @@ export default async function Schedule({ searchParams }: { searchParams: Search 
     <main className="shell wide">
       <header className="page-head">
         <div>
-          <p className="eyebrow">{t('buchen.eyebrow')}</p>
-          <h1>{t('buchen.cim')}</h1>
+          <p className="eyebrow">{t('schedule.eyebrow')}</p>
+          <h1>{t('schedule.title')}</h1>
         </div>
         <p className="who">
           {user
-            ? <>{t('buchen.angemeldet_als', { nev: user.firstName ?? '' })} · <Link href="/konto">{t('kozos.mein_konto')}</Link></>
-            : <Link href="/login">{t('kozos.anmelden')}</Link>}
+            ? <>{t('schedule.signed_in_as', { name: user.firstName ?? '' })} · <Link href="/konto">{t('common.my_account')}</Link></>
+            : <Link href="/login">{t('common.sign_in')}</Link>}
         </p>
       </header>
 
       <nav className="filters">
         <Link
           className={!studio ? 'chip on' : 'chip'}
-          href={`/buchen?ansicht=${mod}&datum=${horgony}`}
+          href={`/buchen?ansicht=${view}&datum=${anchor}`}
         >
-          {t('buchen.alle_studios')}
+          {t('schedule.all_studios')}
         </Link>
         {(studios.docs as any[]).map((s) => (
           <Link
             key={s.id}
             className={String(s.id) === studio ? 'chip on' : 'chip'}
-            href={`/buchen?studio=${s.id}&ansicht=${mod}&datum=${horgony}`}
+            href={`/buchen?studio=${s.id}&ansicht=${view}&datum=${anchor}`}
           >
             {s.city}
           </Link>
         ))}
       </nav>
 
-      <Naptar
-        mod={mod}
-        horgony={horgony}
-        esemenyek={esemenyek}
+      <Calendar
+        view={view}
+        anchor={anchor}
+        events={events}
         lang={lang}
-        alap="/buchen"
+        base="/buchen"
         extra={{ studio }}
       />
     </main>

@@ -1,6 +1,6 @@
 import { setLanguage } from '../actions'
 import type { Lang } from '@/lib/lang'
-import { forditó } from '@/lib/i18n'
+import { translator } from '@/lib/i18n'
 
 /**
  * The `DE | EN` switch on the booking system's pages.
@@ -14,10 +14,10 @@ import { forditó } from '@/lib/i18n'
  * in that language.
  */
 export default function LangSwitch({ lang, next }: { lang: Lang; next: string }) {
-  const t = forditó(lang)
+  const t = translator(lang)
 
   return (
-    <form action={setLanguage} className="lang" aria-label={t('kozos.nyelv_valto')}>
+    <form action={setLanguage} className="lang" aria-label={t('common.choose_language')}>
       <input type="hidden" name="next" value={next} />
       {lang === 'de' ? (
         <span aria-current="true">DE</span>

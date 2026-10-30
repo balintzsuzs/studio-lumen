@@ -1,5 +1,5 @@
 import 'server-only'
-import type { HibaKulcs } from './i18n'
+import type { ErrorKey } from './i18n'
 import type { Payload } from 'payload'
 import { sessionCancelled } from './notify'
 
@@ -21,7 +21,7 @@ export type StudioCancelResult = {
   cancelled: number
   refunded: number
   notified: number
-  reason?: HibaKulcs
+  reason?: ErrorKey
 }
 
 /**
@@ -38,7 +38,7 @@ export const cancelSessionByStudio = async (
   try {
     session = await payload.findByID({ collection: 'sessions', id: sessionId, depth: 0 })
   } catch {
-    return { ok: false, cancelled: 0, refunded: 0, notified: 0, reason: 'hiba.ora_nem_talalhato' }
+    return { ok: false, cancelled: 0, refunded: 0, notified: 0, reason: 'error.class_not_found' }
   }
 
   const bookings = await payload.find({
@@ -102,7 +102,7 @@ export const cancelSessionByStudio = async (
     if (tx) await payload.db.rollbackTransaction?.(tx)
     return {
       ok: false, cancelled: 0, refunded: 0, notified: 0,
-      reason: 'hiba.lemondas_mentes',
+      reason: 'error.cancel_save_failed',
     }
   }
 
@@ -132,7 +132,7 @@ export const cancelForTooFewParticipants = async (
     return {
       ok: false, cancelled: 0, refunded: 0, notified: 0,
       participants: booked.totalDocs,
-      reason: 'hiba.eleg_jelentkezo',
+      reason: 'error.enough_registrations',
     }
 
   const r = await cancelSessionByStudio(

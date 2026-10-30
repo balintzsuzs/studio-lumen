@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { LANG_SUTI } from '@/lib/lang'
+import { LANG_COOKIE } from '@/lib/lang'
 
 /**
  * Handles two things, both in one place.
@@ -17,9 +17,9 @@ import { LANG_SUTI } from '@/lib/lang'
  * server action (`src/app/(frontend)/actions.ts`), because that also
  * updates the `users.language` field for a signed-in user.
  */
-export const UTVONAL_FEJLEC = 'x-site-pathname'
+export const PATH_HEADER = 'x-site-pathname'
 
-const NYELV_UTVONAL: Array<[RegExp, 'de' | 'en']> = [
+const LANG_PREFIX: Array<[RegExp, 'de' | 'en']> = [
   [/^\/en(\/|$)/, 'en'],
   [/^\/$/, 'de'],
 ]
@@ -27,19 +27,19 @@ const NYELV_UTVONAL: Array<[RegExp, 'de' | 'en']> = [
 export function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
-  const talalat = NYELV_UTVONAL.find(([minta]) => minta.test(pathname))
-  const nyelv = talalat?.[1]
-  const valtozik = Boolean(nyelv) && request.cookies.get(LANG_SUTI.nev)?.value !== nyelv
+  const match = LANG_PREFIX.find(([pattern]) => pattern.test(pathname))
+  const lang = match?.[1]
+  const changes = Boolean(lang) && request.cookies.get(LANG_COOKIE.name)?.value !== lang
 
   // Rewrite the cookie on the request too, so the current render
   // already sees it, not only the next request.
-  if (valtozik && nyelv) request.cookies.set(LANG_SUTI.nev, nyelv)
+  if (changes && lang) request.cookies.set(LANG_COOKIE.name, lang)
 
   const headers = new Headers(request.headers)
-  headers.set(UTVONAL_FEJLEC, pathname + search)
+  headers.set(PATH_HEADER, pathname + search)
 
   const response = NextResponse.next({ request: { headers } })
-  if (valtozik && nyelv) response.cookies.set(LANG_SUTI.nev, nyelv, LANG_SUTI.beallitas)
+  if (changes && lang) response.cookies.set(LANG_COOKIE.name, lang, LANG_COOKIE.options)
   return response
 }
 

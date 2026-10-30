@@ -1,6 +1,6 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
-import { napKulcs } from '@/lib/naptar'
+import { dayKey } from '@/lib/calendar'
 import { getAvailability } from '@/lib/booking'
 
 /**
@@ -13,61 +13,61 @@ import { getAvailability } from '@/lib/booking'
  *   curl http://localhost:3000/setup/demo-check
  */
 
-type Pont = { rendben: boolean; cim: string; reszlet: string; teendo?: string }
+type Check = { ok: boolean; title: string; detail: string; todo?: string }
 
 export async function GET() {
   try {
     const payload = await getPayload({ config })
-    const pontok: Pont[] = []
-    const szam = async (collection: any, where: any) =>
+    const checks: Check[] = []
+    const number = async (collection: any, where: any) =>
       (await payload.find({ collection, where, limit: 0, depth: 0 })).totalDocs
 
     // 1. Test residue
-    const tesztFiok = await szam('users', { email: { like: '@test.local' } })
-    const tesztOra = await szam('sessions', { note: { equals: 'TEST' } })
-    const sorozat = await szam('session-series', {})
-    const szemet = tesztFiok + tesztOra + sorozat
-    pontok.push({
-      rendben: szemet === 0,
-      cim: 'No test residue',
-      reszlet: `${tesztFiok} test accounts, ${tesztOra} TEST classes, ${sorozat} series`,
-      teendo: szemet > 0
+    const testAccount = await number('users', { email: { like: '@test.local' } })
+    const testLesson = await number('sessions', { note: { equals: 'TEST' } })
+    const series = await number('session-series', {})
+    const junk = testAccount + testLesson + series
+    checks.push({
+      ok: junk === 0,
+      title: 'No test residue',
+      detail: `${testAccount} test accounts, ${testLesson} TEST classes, ${series} series`,
+      todo: junk > 0
         ? 'Someone ran the test suite against this database. Clean it up before anyone sees it.'
         : undefined,
     })
 
     // 2. People
-    const osszes = await szam('users', {})
+    const total = await number('users', {})
     /*
      * The admin teaches too: Nadine owns the studio and also takes
      * classes. While we counted only the `instructor` role, changing
      * her role looked like a fault — when it was in fact the fix.
      */
-    const oktato = await szam('users', { role: { in: ['instructor', 'admin'] } })
-    pontok.push({
-      rendben: osszes <= 20 && oktato >= 3,
-      cim: 'The people list is in order',
-      reszlet: `${osszes} people, ${oktato} of them teaching`,
-      teendo: osszes > 20 ? 'Too many accounts — probably leftovers.' : undefined,
+    const instructor = await number('users', { role: { in: ['instructor', 'admin'] } })
+    checks.push({
+      ok: total <= 20 && instructor >= 3,
+      title: 'The people list is in order',
+      detail: `${total} people, ${instructor} of them teaching`,
+      todo: total > 20 ? 'Too many accounts — probably leftovers.' : undefined,
     })
 
     // 3. Are there any future classes at all
-    const most = new Date()
-    const jovo = await payload.find({
+    const now = new Date()
+    const future = await payload.find({
       collection: 'sessions',
       where: {
         and: [
-          { startsAt: { greater_than: most.toISOString() } },
+          { startsAt: { greater_than: now.toISOString() } },
           { status: { equals: 'scheduled' } },
         ],
       },
       sort: 'startsAt', limit: 40, depth: 0,
     })
-    pontok.push({
-      rendben: jovo.totalDocs >= 10,
-      cim: 'Enough future classes',
-      reszlet: `${jovo.totalDocs} classes in the period ahead`,
-      teendo: jovo.totalDocs < 10 ? 'The schedule has run out: POST /setup/sessions' : undefined,
+    checks.push({
+      ok: future.totalDocs >= 10,
+      title: 'Enough future classes',
+      detail: `${future.totalDocs} classes in the period ahead`,
+      todo: future.totalDocs < 10 ? 'The schedule has run out: POST /setup/sessions' : undefined,
     })
 
     /*
@@ -78,42 +78,42 @@ export async function GET() {
      * a waitlist. Only today is not enough: leave it until the evening
      * and tomorrow shows an empty schedule.
      */
-    const teltNapok = new Set<string>()
-    let teltOra: any = null
-    let varolistan = 0
-    for (const s of jovo.docs as any[]) {
-      const szabad = (await getAvailability(payload, s.id)).filter((r) => r.status === 'free')
-      if (szabad.length > 0) continue
-      const varnak = await szam('waitlist-entries', {
+    const fullDays = new Set<string>()
+    let fullLesson: any = null
+    let onWaitlist = 0
+    for (const s of future.docs as any[]) {
+      const free = (await getAvailability(payload, s.id)).filter((r) => r.status === 'free')
+      if (free.length > 0) continue
+      const waiting = await number('waitlist-entries', {
         and: [{ session: { equals: s.id } }, { status: { in: ['waiting', 'offered'] } }],
       })
-      if (varnak === 0) continue
-      teltNapok.add(napKulcs(s.startsAt))
-      if (!teltOra) { teltOra = s; varolistan = varnak }
+      if (waiting === 0) continue
+      fullDays.add(dayKey(s.startsAt))
+      if (!fullLesson) { fullLesson = s; onWaitlist = waiting }
     }
-    const oraig = teltOra
-      ? Math.round((new Date(teltOra.startsAt).getTime() - most.getTime()) / 36e5)
+    const hoursUntil = fullLesson
+      ? Math.round((new Date(fullLesson.startsAt).getTime() - now.getTime()) / 36e5)
       : null
-    pontok.push({
-      rendben: teltNapok.size >= 2,
-      cim: 'A full class with a waitlist, across several days',
-      reszlet: teltOra
-        ? `on ${teltNapok.size} days; the next one in ${oraig} hours, ${varolistan} waiting`
+    checks.push({
+      ok: fullDays.size >= 2,
+      title: 'A full class with a waitlist, across several days',
+      detail: fullLesson
+        ? `on ${fullDays.size} days; the next one in ${hoursUntil} hours, ${onWaitlist} waiting`
         : 'no full class in the future',
-      teendo: teltNapok.size < 2
-        ? teltNapok.size === 1
+      todo: fullDays.size < 2
+        ? fullDays.size === 1
           ? 'Only TODAY has a full class — it runs out by tomorrow. Refresh with: POST /setup/demo-data'
           : 'The strongest part of the demo is missing. Refresh with: POST /setup/demo-data'
         : undefined,
     })
 
     // 5. An open pass order for the Verwaltung page
-    const nyitott = await szam('abos', { status: { equals: 'pending' } })
-    pontok.push({
-      rendben: nyitott > 0,
-      cim: 'There is an open pass order',
-      reszlet: `${nyitott} open`,
-      teendo: nyitott === 0
+    const open = await number('abos', { status: { equals: 'pending' } })
+    checks.push({
+      ok: open > 0,
+      title: 'There is an open pass order',
+      detail: `${open} open`,
+      todo: open === 0
         ? 'The Verwaltung page would stand empty. Refresh with: POST /setup/demo-data'
         : undefined,
     })
@@ -124,30 +124,30 @@ export async function GET() {
       where: { email: { equals: 'sandra@demo.studio-lumen.ch' } },
       limit: 1, depth: 0,
     })).docs[0] as any
-    const kredit = demo
+    const credit = demo
       ? (await payload.find({
           collection: 'abos',
           where: { and: [{ customer: { equals: demo.id } }, { status: { equals: 'active' } }] },
           limit: 1, depth: 0,
         })).docs[0] as any
       : null
-    pontok.push({
-      rendben: Boolean(kredit?.creditsRemaining > 0),
-      cim: 'The demo customer can book',
-      reszlet: demo
-        ? `${demo.firstName} ${demo.lastName}, ${kredit?.creditsRemaining ?? 0} credits`
+    checks.push({
+      ok: Boolean(credit?.creditsRemaining > 0),
+      title: 'The demo customer can book',
+      detail: demo
+        ? `${demo.firstName} ${demo.lastName}, ${credit?.creditsRemaining ?? 0} credits`
         : 'no demo customer',
-      teendo: !kredit?.creditsRemaining
+      todo: !credit?.creditsRemaining
         ? 'You would have no booking to show. Refresh with: POST /setup/demo-data'
         : undefined,
     })
 
-    const hibak = pontok.filter((p) => !p.rendben)
+    const errors = checks.filter((p) => !p.ok)
     return Response.json({
-      bemutathato: hibak.length === 0,
-      ellenorzesek: pontok.length,
-      hibak: hibak.length,
-      pontok,
+      presentable: errors.length === 0,
+      checkCount: checks.length,
+      errors: errors.length,
+      checks,
     })
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 })

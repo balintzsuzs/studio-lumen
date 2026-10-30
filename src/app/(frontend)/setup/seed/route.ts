@@ -11,7 +11,7 @@ import { seed } from '@/seed-data'
  */
 export async function POST() {
   if (process.env.ALLOW_SEED !== 'true') {
-    return Response.json({ error: 'Seed ist deaktiviert.' }, { status: 403 })
+    return Response.json({ error: 'Seeding is disabled.' }, { status: 403 })
   }
   try {
     const payload = await getPayload({ config })

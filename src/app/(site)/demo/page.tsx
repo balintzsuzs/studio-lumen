@@ -32,16 +32,16 @@ export default async function DemoGuide() {
       <SiteNav
         user={user as NavUser}
         lang="en"
-        oldal="demo"
-        nyelvvalto={false}
-        ujLapon
+        page="demo"
+        langSwitch={false}
+        inNewTab
       />
 
       <main id="top">
         <section className="tight">
           <div className="wrap guide">
 
-            <p className="absender">A self-initiated practice project</p>
+            <p className="sender">A self-initiated practice project</p>
             <h1>A booking system you can actually click through</h1>
 
             <p>
@@ -58,7 +58,7 @@ export default async function DemoGuide() {
               below has a note on <em>why</em> it behaves the way it does.
             </p>
 
-            <div className="kasten wichtig">
+            <div className="box important">
               <h2>Everything here is made up</h2>
               <p>
                 The studio, the two locations, the four instructors, the
@@ -70,25 +70,25 @@ export default async function DemoGuide() {
               </p>
             </div>
 
-            <div className="kasten">
+            <div className="box">
               <h2>Two logins</h2>
               <p>
                 You need both: the system looks completely different from each
                 side. Nothing you do can break it — the demo data is rebuilt
                 from a script.
               </p>
-              <div className="zugang">
+              <div className="access">
                 <span><strong>Customer:</strong> <code>kundin@demo.studio-lumen.ch</code></span>
                 <span><strong>Studio (admin):</strong> <code>nadine@team.studio-lumen.ch</code></span>
                 <span><strong>Password for both:</strong> <code>StudioLumen2026</code></span>
               </div>
             </div>
 
-            <ol className="schritte">
+            <ol className="steps">
 
-              <li className="schritt">
+              <li className="step">
                 <span className="nr">1</span>
-                <div className="inhalt">
+                <div className="content">
                   <h2>Book a class as a customer</h2>
                   <p>
                     Sign in as the customer and open the schedule. Pick a
@@ -96,7 +96,7 @@ export default async function DemoGuide() {
                     machines are laid out the way they physically stand in the
                     room, mirror row first.
                   </p>
-                  <p className="warum">
+                  <p className="why">
                     Why: in a studio this size people have a favourite
                     machine, and the instructor needs to know who is where
                     before the class starts. A list of free slots cannot
@@ -106,16 +106,16 @@ export default async function DemoGuide() {
                 </div>
               </li>
 
-              <li className="schritt">
+              <li className="step">
                 <span className="nr">2</span>
-                <div className="inhalt">
+                <div className="content">
                   <h2>Find a full class and join the waitlist</h2>
                   <p>
                     At least three days in the schedule have a class with no
                     free machines. Open one: the booking button is gone and a
                     waitlist offer takes its place.
                   </p>
-                  <p className="warum">
+                  <p className="why">
                     Why: when a spot opens up, the first person on the
                     waitlist gets an exclusive offer with a deadline, rather
                     than everyone being emailed at once. The offer expires on
@@ -126,9 +126,9 @@ export default async function DemoGuide() {
                 </div>
               </li>
 
-              <li className="schritt">
+              <li className="step">
                 <span className="nr">3</span>
-                <div className="inhalt">
+                <div className="content">
                   <h2>Cancel something, and watch the credit</h2>
                   <p>
                     In your account you will see your pass, the credits left
@@ -136,7 +136,7 @@ export default async function DemoGuide() {
                     ahead and the credit comes back. Try one inside 24 hours
                     and it does not.
                   </p>
-                  <p className="warum">
+                  <p className="why">
                     Why: the late-cancellation rule is the single most
                     argued-about thing in a studio. It is enforced by the
                     system, with the same clock for everyone, and the
@@ -148,9 +148,9 @@ export default async function DemoGuide() {
                 </div>
               </li>
 
-              <li className="schritt">
+              <li className="step">
                 <span className="nr">4</span>
-                <div className="inhalt">
+                <div className="content">
                   <h2>Now sign in as the studio</h2>
                   <p>
                     Sign out and sign in with the studio login. The same
@@ -158,7 +158,7 @@ export default async function DemoGuide() {
                     they are on, which pass they are using and how many
                     credits are left on it.
                   </p>
-                  <p className="warum">
+                  <p className="why">
                     Why: the owner of a studio this size is also teaching. She
                     does not want an admin panel, she wants the same schedule
                     her customers see, with the answers already on it.
@@ -167,16 +167,16 @@ export default async function DemoGuide() {
                 </div>
               </li>
 
-              <li className="schritt">
+              <li className="step">
                 <span className="nr">5</span>
-                <div className="inhalt">
+                <div className="content">
                   <h2>Add a class, then delete it</h2>
                   <p>
                     On the studio calendar there is a form to add a single
                     class. Add one, then open it and delete it again. Then try
                     to delete a class that already has people in it.
                   </p>
-                  <p className="warum">
+                  <p className="why">
                     Why: this was the feature that mattered most. A studio
                     owner who cannot change her own schedule will not adopt the
                     system, no matter how good the rest is. Deleting a class
@@ -186,16 +186,16 @@ export default async function DemoGuide() {
                 </div>
               </li>
 
-              <li className="schritt">
+              <li className="step">
                 <span className="nr">6</span>
-                <div className="inhalt">
+                <div className="content">
                   <h2>Take attendance by marking who was <em>absent</em></h2>
                   <p>
                     Open a class that has already happened. Everyone who
                     booked counts as present. There is one button per person,
                     and it marks them absent.
                   </p>
-                  <p className="warum">
+                  <p className="why">
                     Why: I built this the other way round first — tick each
                     person as present. That is five clicks to record the
                     normal case, which is that everyone showed up. Inverting
@@ -206,9 +206,9 @@ export default async function DemoGuide() {
                 </div>
               </li>
 
-              <li className="schritt">
+              <li className="step">
                 <span className="nr">7</span>
-                <div className="inhalt">
+                <div className="content">
                   <h2>Look up a customer</h2>
                   <p>
                     The customer list shows who has a health note, but not
@@ -216,7 +216,7 @@ export default async function DemoGuide() {
                     details, the note in full, the passes, which classes they
                     are booked into, and which ones they attended.
                   </p>
-                  <p className="warum">
+                  <p className="why">
                     Why: a health note is sensitive, and a list shows many
                     people at once to someone who is not yet looking at any
                     one of them. The full text appears on the profile and on
@@ -229,9 +229,9 @@ export default async function DemoGuide() {
 
             </ol>
 
-            <div className="schluss">
+            <div className="closing">
               <h2>What I deliberately did not build</h2>
-              <ul className="liste">
+              <ul className="bullets">
                 <li>
                   <strong>Card payment.</strong> Passes are ordered in the
                   system and released by the studio once paid on site. Adding
@@ -251,7 +251,7 @@ export default async function DemoGuide() {
               </ul>
 
               <h2 style={{ marginTop: '28px' }}>How it is built</h2>
-              <ul className="liste">
+              <ul className="bullets">
                 <li>
                   Next.js and Payload CMS in a single deployment — the
                   marketing site, the booking system and the admin are one

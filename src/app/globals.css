@@ -312,13 +312,13 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
 
 /* The health note in the register: marked out separately, because it
    is the thing the instructor has to notice before the class. */
-.tag.egeszseg { color: var(--ink); border-left: 2px solid var(--flag, #8a6a3f); padding-left: 8px; }
+.tag.health { color: var(--ink); border-left: 2px solid var(--flag, #8a6a3f); padding-left: 8px; }
 
 
 /* The register's four columns would run off the screen on a phone:
    let the table scroll inside its own frame, not the whole page. */
-.tabla-keret { overflow-x: auto; }
-.tabla-keret table.list { min-width: 460px; }
+.table-frame { overflow-x: auto; }
+.table-frame table.list { min-width: 460px; }
 
 /* ------------------------------------------------ calendar
 
@@ -328,176 +328,176 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
    separate grid, because seven columns are unreadable on a phone, and
    the rows say more anyway. */
 
-.naptar { margin-top: 28px; }
+.calendar { margin-top: 28px; }
 
 /* --- header --- */
-.naptar-fej {
+.calendar-head {
   display: flex; justify-content: space-between; align-items: baseline;
   gap: 16px; flex-wrap: wrap; margin-bottom: 18px;
 }
 /* `.shell section h2` uppercases and underlines every section title.
    The calendar's month name is not a section title but a caption — it
    is overridden with two classes, so it outweighs that rule. */
-.naptar .naptar-honapnev {
+.calendar .calendar-monthname {
   font-size: 1.35rem; font-weight: 500; margin: 0;
   letter-spacing: -0.01em; text-transform: none;
   color: var(--ink); border-bottom: 0; padding-bottom: 0;
 }
-.naptar .naptar-napblokk h3 {
+.calendar .calendar-dayblock h3 {
   text-transform: none; letter-spacing: 0; color: var(--ink);
   border-bottom: 0; padding-bottom: 0;
 }
-.naptar-modok { display: flex; gap: 2px; }
-.naptar-modok .mod {
+.calendar-views { display: flex; gap: 2px; }
+.calendar-views .view {
   padding: 6px 14px; font-size: 0.78rem; letter-spacing: 0.08em;
   text-transform: uppercase; color: var(--ink-soft);
   border: 1px solid transparent;
 }
-.naptar-modok .mod:hover { color: var(--ink); }
-.naptar-modok .mod.on {
+.calendar-views .view:hover { color: var(--ink); }
+.calendar-views .view.on {
   color: var(--ink); border-color: var(--line); background: var(--white);
 }
 
 /* --- date strip --- */
-.datumsav {
+.date-strip {
   display: flex; align-items: center; gap: 4px;
   border-top: 1px solid var(--line); border-bottom: 1px solid var(--line);
   padding: 14px 0;
 }
-.sav-nyil {
+.strip-arrow {
   flex: 0 0 auto; width: 30px; height: 30px;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 1.2rem; line-height: 1; color: var(--ink-soft); border: 0;
 }
-.sav-nyil:hover { color: var(--ink); }
+.strip-arrow:hover { color: var(--ink); }
 
-.sav-napok {
+.strip-days {
   flex: 1; list-style: none; margin: 0; padding: 0;
   display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
 }
-.sav-nap {
+.strip-day {
   display: grid; justify-items: center; gap: 5px;
   padding: 4px 0; border: 0; text-align: center;
 }
-.sav-betu {
+.strip-letter {
   font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--ink-soft);
 }
-.sav-szam {
+.strip-number {
   width: 40px; height: 40px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
   font-size: 0.98rem; font-variant-numeric: tabular-nums;
   border: 1px solid var(--line); background: var(--white); color: var(--ink);
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
-.sav-nap:hover .sav-szam { border-color: var(--ink); }
-.sav-nap.ma .sav-szam { border-color: var(--ink); font-weight: 500; }
-.sav-nap.on .sav-szam {
+.strip-day:hover .strip-number { border-color: var(--ink); }
+.strip-day.today .strip-number { border-color: var(--ink); font-weight: 500; }
+.strip-day.on .strip-number {
   background: var(--accent); border-color: var(--accent); color: var(--cream);
 }
-.sav-pont {
+.strip-dot {
   width: 4px; height: 4px; border-radius: 50%; background: var(--accent);
 }
-.sav-pont.ures { background: transparent; }
+.strip-dot.blank { background: transparent; }
 
-.naptar-megjegyzes {
+.calendar-note {
   font-size: 0.8rem; color: var(--ink-soft); margin: 12px 0 0;
 }
-.ma-link { border-bottom: 1px solid var(--line); }
-.ma-link:hover { border-color: var(--ink); color: var(--ink); }
+.today-link { border-bottom: 1px solid var(--line); }
+.today-link:hover { border-color: var(--ink); color: var(--ink); }
 
 /* --- days and classes --- */
-.naptar-tartalom { margin-top: 28px; }
-.naptar-napblokk + .naptar-napblokk { margin-top: 34px; }
-.naptar-napblokk h3 {
+.calendar-body { margin-top: 28px; }
+.calendar-dayblock + .calendar-dayblock { margin-top: 34px; }
+.calendar-dayblock h3 {
   font-size: 1.02rem; font-weight: 500; margin: 0 0 4px;
 }
-.naptar-napblokk h3.ma::after {
+.calendar-dayblock h3.today::after {
   content: ''; display: inline-block; width: 5px; height: 5px;
   border-radius: 50%; background: var(--accent);
   vertical-align: 0.35em; margin-left: 8px;
 }
 
-.ora-lista { list-style: none; margin: 0; padding: 0; }
-.ora-sor {
+.lesson-list { list-style: none; margin: 0; padding: 0; }
+.lesson-row {
   display: grid;
   grid-template-columns: 76px 1fr auto;
   gap: 4px 18px; align-items: start;
   padding: 18px 0; border-bottom: 1px solid var(--line);
 }
-.ora-sor:first-child { border-top: 1px solid var(--line); }
-.ora-sor.lemondva { opacity: 0.5; }
-.ora-sor.lemondva .ora-cim { text-decoration: line-through; }
+.lesson-row:first-child { border-top: 1px solid var(--line); }
+.lesson-row.cancelled { opacity: 0.5; }
+.lesson-row.cancelled .lesson-title { text-decoration: line-through; }
 
-.ora-ido { display: grid; gap: 2px; }
-.ora-ido .ido {
+.lesson-time { display: grid; gap: 2px; }
+.lesson-time .clock {
   font-size: 1.05rem; font-weight: 500; font-variant-numeric: tabular-nums;
 }
-.ora-ido .hossz { font-size: 0.8rem; color: var(--ink-soft); }
+.lesson-time .duration { font-size: 0.8rem; color: var(--ink-soft); }
 
-.ora-torzs { min-width: 0; }
-.ora-cim {
+.lesson-body { min-width: 0; }
+.lesson-title {
   font-size: 1.05rem; font-weight: 500; border: 0; display: inline-block;
 }
-.ora-cim:hover { border-bottom: 1px solid var(--ink); }
-.ora-also, .ora-harmadik {
+.lesson-title:hover { border-bottom: 1px solid var(--ink); }
+.lesson-bottom, .lesson-third {
   font-size: 0.88rem; color: var(--ink-soft); margin: 2px 0 0;
 }
 
-.ora-jobb {
+.lesson-right {
   display: grid; justify-items: end; gap: 10px; align-content: start;
 }
-.ora-jeloles {
+.lesson-marker {
   font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap;
 }
-.ora-jeloles.telt { color: var(--ink); }
-.btn.ora-gomb { padding: 9px 20px; font-size: 0.78rem; white-space: nowrap; }
+.lesson-marker.full { color: var(--ink); }
+.btn.lesson-button { padding: 9px 20px; font-size: 0.78rem; white-space: nowrap; }
 
 /* --- narrow screens --- */
 @media (max-width: 620px) {
-  .naptar-fej { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .sav-szam { width: 36px; height: 36px; font-size: 0.92rem; }
-  .ora-sor {
+  .calendar-head { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .strip-number { width: 36px; height: 36px; font-size: 0.92rem; }
+  .lesson-row {
     grid-template-columns: 62px 1fr;
     gap: 2px 14px;
   }
-  .ora-jobb {
+  .lesson-right {
     grid-column: 1 / -1; justify-items: start;
     grid-auto-flow: column; justify-content: start; align-items: center;
     gap: 14px; margin-top: 10px;
   }
 }
 @media (max-width: 380px) {
-  .sav-szam { width: 32px; height: 32px; font-size: 0.86rem; }
-  .sav-betu { font-size: 0.66rem; }
+  .strip-number { width: 32px; height: 32px; font-size: 0.86rem; }
+  .strip-letter { font-size: 0.66rem; }
 }
 
 /* Participants under the class, in the studio view. Indented beneath
    the title so it is clear they belong to that class and are not rows
    of their own. */
-.ora-sor .resztvevok {
+.lesson-row .participants {
   grid-column: 2 / -1; list-style: none; margin: 12px 0 0; padding: 0;
   display: grid; gap: 7px; font-size: 0.85rem;
 }
-.ora-sor .resztvevok > li {
+.lesson-row .participants > li {
   display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
   padding-left: 12px; border-left: 2px solid var(--line);
 }
-.ora-sor .resztvevok > li.halvany { color: var(--ink-soft); }
-.r-nev { font-weight: 500; }
-.r-gep, .r-abo, .r-allapot, .r-jelzes { color: var(--ink-soft); font-size: 0.8rem; }
-.r-egeszseg {
+.lesson-row .participants > li.faint { color: var(--ink-soft); }
+.r-name { font-weight: 500; }
+.r-reformer, .r-abo, .r-status, .r-tag { color: var(--ink-soft); font-size: 0.8rem; }
+.r-health {
   flex-basis: 100%; font-size: 0.8rem; color: var(--ink);
   border-left: 2px solid var(--flag, #8a6a3f); padding-left: 8px;
 }
 
 @media (max-width: 620px) {
-  .ora-sor .resztvevok { grid-column: 1 / -1; }
+  .lesson-row .participants { grid-column: 1 / -1; }
 }
 
 /* ---------------------------------------------------- customers (studio) */
-.kereso { display: flex; gap: 10px; align-items: center; margin: 0 0 18px; flex-wrap: wrap; }
-.kereso input[type='search'] {
+.search { display: flex; gap: 10px; align-items: center; margin: 0 0 18px; flex-wrap: wrap; }
+.search input[type='search'] {
   flex: 1 1 220px; min-width: 0;
   padding: 10px 12px; border: 1px solid var(--line); border-radius: 2px;
   font: inherit; background: transparent; color: var(--ink);
@@ -506,46 +506,46 @@ ul.abolist { list-style: none; display: grid; gap: 0; }
 /* Contact details and the health note side by side: before a class
    those are the two things you need, and nobody should have to scroll
    for a phone number. */
-.kunde-racs { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; align-items: start; }
+.customer-grid { display: grid; gap: 18px; grid-template-columns: 1fr 1fr; align-items: start; }
 
-dl.adatlap { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
-dl.adatlap dt { color: var(--ink-soft); font-size: 0.88rem; }
-dl.adatlap dd { margin: 0; }
-.halvany { color: var(--ink-soft); }
+dl.datasheet { display: grid; grid-template-columns: auto 1fr; gap: 6px 16px; margin: 0; }
+dl.datasheet dt { color: var(--ink-soft); font-size: 0.88rem; }
+dl.datasheet dd { margin: 0; }
+.faint { color: var(--ink-soft); }
 
-.egeszseg-blokk {
+.health-block {
   border-left: 2px solid var(--flag, #8a6a3f); padding-left: 12px;
   margin: 0; white-space: pre-line;
 }
 
-ul.kunde-orak { list-style: none; margin: 0; padding: 0; }
-ul.kunde-orak > li {
+ul.customer-lessons { list-style: none; margin: 0; padding: 0; }
+ul.customer-lessons > li {
   display: grid; gap: 2px 14px; align-items: baseline;
   grid-template-columns: minmax(0, 1fr) auto;
   padding: 10px 0; border-bottom: 1px solid var(--line);
 }
-ul.kunde-orak > li.muted { color: var(--ink-soft); }
-.kunde-ora-cim { font-weight: 500; }
-.kunde-ora-ido { grid-column: 2; text-align: right; font-size: 0.9rem; color: var(--ink-soft); }
-.kunde-ora-hol { grid-column: 1 / -1; font-size: 0.88rem; color: var(--ink-soft); }
+ul.customer-lessons > li.muted { color: var(--ink-soft); }
+.customer-lesson-title { font-weight: 500; }
+.customer-lesson-time { grid-column: 2; text-align: right; font-size: 0.9rem; color: var(--ink-soft); }
+.customer-lesson-where { grid-column: 1 / -1; font-size: 0.88rem; color: var(--ink-soft); }
 
 @media (max-width: 760px) {
-  .kunde-racs { grid-template-columns: 1fr; }
-  ul.kunde-orak > li { grid-template-columns: 1fr; }
-  .kunde-ora-ido { grid-column: 1; text-align: left; }
+  .customer-grid { grid-template-columns: 1fr; }
+  ul.customer-lessons > li { grid-template-columns: 1fr; }
+  .customer-lesson-time { grid-column: 1; text-align: left; }
 }
-dl.adatlap + .hint { margin-top: 14px; }
+dl.datasheet + .hint { margin-top: 14px; }
 
 /* ------------------------------------------------------- creating a class */
-details.ujora { border: 1px solid var(--line); padding: 14px 16px; margin: 0 0 22px; }
-details.ujora > summary { cursor: pointer; font-weight: 500; }
-details.ujora[open] > summary { margin-bottom: 10px; }
+details.newlesson { border: 1px solid var(--line); padding: 14px 16px; margin: 0 0 22px; }
+details.newlesson > summary { cursor: pointer; font-weight: 500; }
+details.newlesson[open] > summary { margin-bottom: 10px; }
 
-form.uraplap { display: grid; gap: 12px 16px; grid-template-columns: repeat(3, 1fr); }
-form.uraplap label { display: grid; gap: 4px; font-size: 0.88rem; color: var(--ink-soft); }
-form.uraplap label.szeles, form.uraplap .szeles { grid-column: 1 / -1; }
-form.uraplap input, form.uraplap select {
+form.formgrid { display: grid; gap: 12px 16px; grid-template-columns: repeat(3, 1fr); }
+form.formgrid label { display: grid; gap: 4px; font-size: 0.88rem; color: var(--ink-soft); }
+form.formgrid label.full-width, form.formgrid .full-width { grid-column: 1 / -1; }
+form.formgrid input, form.formgrid select {
   padding: 9px 10px; border: 1px solid var(--line); border-radius: 2px;
   font: inherit; color: var(--ink); background: transparent;
 }
-@media (max-width: 760px) { form.uraplap { grid-template-columns: 1fr; } }
+@media (max-width: 760px) { form.formgrid { grid-template-columns: 1fr; } }

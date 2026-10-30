@@ -7,7 +7,7 @@ import { getMyEntry, countWaiting, offerMinutesFor, maybeTick } from '@/lib/wait
 import { getCurrentUser } from '@/lib/auth'
 import { dayLabel, timeLabel, dateTimeLabel, shortDateLabel, languageLabel } from '@/lib/format'
 import { getLang } from '@/lib/lang'
-import { forditó, szotarKulcs } from '@/lib/i18n'
+import { translator, isDictionaryKey } from '@/lib/i18n'
 import { book, joinList, leaveList, claim } from './actions'
 
 export const dynamic = 'force-dynamic'
@@ -32,7 +32,7 @@ export default async function SessionPage({
     redirect(`/unterricht/${Number(id)}`)
   }
   const lang = await getLang(user)
-  const t = forditó(lang)
+  const t = translator(lang)
   await maybeTick(payload)
 
   let session: any
@@ -69,65 +69,65 @@ export default async function SessionPage({
   const windowMinutes = offerMinutesFor(settings.waitlistWindows, startsAt)
   const windowLabel =
     windowMinutes >= 120
-      ? `${Math.round(windowMinutes / 60)} ${t('kozos.stunden')}`
-      : `${windowMinutes} ${t('kozos.minuten')}`
+      ? `${Math.round(windowMinutes / 60)} ${t('common.hours')}`
+      : `${windowMinutes} ${t('common.minutes')}`
 
   const canBook = Boolean(user && abo && free > 0 && !closure && !isPast)
   const canJoin = Boolean(user && full && !closure && !isPast && !entry)
 
   return (
     <main className="shell">
-      <p className="back"><Link href="/buchen">{t('kozos.stundenplan_vissza')}</Link></p>
+      <p className="back"><Link href="/buchen">{t('common.schedule_back')}</Link></p>
 
       <p className="eyebrow">{session.studio?.city}</p>
       <h1>{session.classType?.name}</h1>
       <p className="lead">
         {dayLabel(session.startsAt, lang)}, {timeLabel(session.startsAt, lang)}
         {lang === 'de' ? ' Uhr' : ''} ·{' '}
-        {session.durationMinutes} {t('kozos.minuten')} · {session.instructor?.firstName}
+        {session.durationMinutes} {t('common.minutes')} · {session.instructor?.firstName}
         {languageLabel(session) && ` · ${languageLabel(session)}`}
       </p>
 
-      {szotarKulcs(fehler) && <p className="alert">{t(fehler)}</p>}
+      {isDictionaryKey(fehler) && <p className="alert">{t(fehler)}</p>}
       {warteliste && (
-        <p className="ok">{t('ora.warteliste_pozicio', { pozicio: warteliste })}</p>
+        <p className="ok">{t('class.waitlist_position', { position: warteliste })}</p>
       )}
-      {abgemeldet && <p className="ok">{t('ora.abgemeldet')}</p>}
-      {closure && <p className="alert">{t('ora.zarva', { ok: closure })}</p>}
+      {abgemeldet && <p className="ok">{t('class.left_waitlist')}</p>}
+      {closure && <p className="alert">{t('class.closed', { reason: closure })}</p>}
       {session.status === 'cancelled' && (
         <p className="alert">
-          {t('ora.lemondva', {
-            ok: session.cancellationReason ? `: ${session.cancellationReason}` : '.',
+          {t('class.cancelled', {
+            reason: session.cancellationReason ? `: ${session.cancellationReason}` : '.',
           })}
         </p>
       )}
       {isPast && session.status !== 'cancelled' && (
-        <p className="alert">{t('ora.mar_elkezdodott')}</p>
+        <p className="alert">{t('class.already_started')}</p>
       )}
 
       {hasLiveOffer && (
         <section className="offer">
-          <h2>{t('ora.ajanlat_cim')}</h2>
+          <h2>{t('class.offer_title')}</h2>
           <p className="hint">
-            {t('ora.ajanlat_szoveg_elott')}{' '}
+            {t('class.offer_text_before')}{' '}
             <strong>{dateTimeLabel(entry.offerExpiresAt, lang)}</strong>
-            {t('ora.ajanlat_szoveg_utan')}
+            {t('class.offer_text_after')}
           </p>
         </section>
       )}
 
       <section className="room">
-        <h2>{t('ora.geraet_waehlen')}</h2>
+        <h2>{t('class.choose_reformer')}</h2>
         <p className="hint">
-          {t('ora.szabad_kesz', { szabad: free, osszes: spots.length })}
-          {full && waitingCount > 0 && t('ora.varolistan_allnak', { db: waitingCount })}
+          {t('class.free_of_total', { free: free, total: spots.length })}
+          {full && waitingCount > 0 && t('class.waiting_count', { count: waitingCount })}
         </p>
 
         <form action={hasLiveOffer ? claim : book}>
           <input type="hidden" name="sessionId" value={session.id} />
           {hasLiveOffer && <input type="hidden" name="entryId" value={entry.id} />}
 
-          <div className="mirror">{t('ora.spiegel')}</div>
+          <div className="mirror">{t('class.mirror')}</div>
           <div className="grid">
             {rows.map((row) => (
               <div className="row" key={row}>
@@ -137,10 +137,10 @@ export default async function SessionPage({
                     className={`spot ${s.status}`}
                     title={
                       s.status === 'free'
-                        ? t('ora.frei')
+                        ? t('class.free')
                         : s.status === 'taken'
-                          ? t('ora.belegt')
-                          : t('ora.nem_elerheto')
+                          ? t('class.taken')
+                          : t('class.not_available')
                     }
                   >
                     <input
@@ -157,15 +157,15 @@ export default async function SessionPage({
           </div>
 
           <ul className="legend">
-            <li><i className="free" /> {t('ora.frei')}</li>
-            <li><i className="taken" /> {t('ora.belegt')}</li>
-            <li><i className="blocked" /> {t('ora.wartung')}</li>
+            <li><i className="free" /> {t('class.free')}</li>
+            <li><i className="taken" /> {t('class.taken')}</li>
+            <li><i className="blocked" /> {t('class.maintenance')}</li>
           </ul>
 
           {!user && (
             <p className="note">
-              {t('ora.foglalashoz_belepes')}{' '}
-              <Link href={`/login?next=/buchen/${session.id}`}>{t('ora.belepes_szo')}</Link>.
+              {t('class.sign_in_to_book')}{' '}
+              <Link href={`/login?next=/buchen/${session.id}`}>{t('class.sign_in_word')}</Link>.
             </p>
           )}
           {user && !abo && (
@@ -173,14 +173,14 @@ export default async function SessionPage({
             // no hint of where to go next. Now the next step is right
             // where someone gets stuck.
             <p className="note">
-              {t('ora.nincs_abo')} <Link href="/abos">{t('ora.abo_bestellen')}</Link>.
+              {t('class.no_pass')} <Link href="/abos">{t('class.order_pass')}</Link>.
             </p>
           )}
           {user && abo && (
             <p className="note">
-              {t('ora.guthaben_sor', {
-                db: abo.creditsRemaining,
-                datum: shortDateLabel(abo.expiresAt, lang),
+              {t('class.credits_row', {
+                count: abo.creditsRemaining,
+                date: shortDateLabel(abo.expiresAt, lang),
               })}
             </p>
           )}
@@ -199,10 +199,10 @@ export default async function SessionPage({
                 type="submit"
                 disabled={hasLiveOffer ? !abo : !canBook}
               >
-                {hasLiveOffer ? t('ora.platz_uebernehmen') : t('ora.verbindlich_buchen')}
+                {hasLiveOffer ? t('class.take_spot') : t('class.confirm_booking')}
               </button>
               <p className="fineprint">
-                {t('ora.storno_szabaly', { ora: settings.cancellationHours })}
+                {t('class.cancellation_rule', { hours: settings.cancellationHours })}
               </p>
             </>
           )}
@@ -212,24 +212,24 @@ export default async function SessionPage({
       {/* The waitlist: shown only when the class really is full. */}
       {full && !isPast && session.status !== 'cancelled' && !closure && (
         <section className="waitlist">
-          <h2>{t('ora.warteliste')}</h2>
+          <h2>{t('class.waitlist')}</h2>
 
           {!user && (
             <p className="note">
-              {t('ora.feliratkozashoz_belepes')}{' '}
-              <Link href={`/login?next=/buchen/${session.id}`}>{t('ora.belepes_szo')}</Link>.
+              {t('class.sign_in_to_join')}{' '}
+              <Link href={`/login?next=/buchen/${session.id}`}>{t('class.sign_in_word')}</Link>.
             </p>
           )}
 
           {canJoin && (
             <>
               <p className="hint">
-                {t('ora.varolista_magyarazat_elott')} <strong>{windowLabel}</strong>{' '}
-                {t('ora.varolista_magyarazat_utan')}
+                {t('class.waitlist_explain_before')} <strong>{windowLabel}</strong>{' '}
+                {t('class.waitlist_explain_after')}
               </p>
               <form action={joinList}>
                 <input type="hidden" name="sessionId" value={session.id} />
-                <button className="btn ghost" type="submit">{t('ora.varolistara')}</button>
+                <button className="btn ghost" type="submit">{t('class.join_waitlist')}</button>
               </form>
             </>
           )}
@@ -239,14 +239,14 @@ export default async function SessionPage({
               <p className="hint">
                 {entry.status === 'offered'
                   ? hasLiveOffer
-                    ? t('ora.sorra_kerultel')
-                    : t('ora.ajanlat_lejart')
-                  : t('ora.pozicio_sor', { pozicio: entry.position, osszes: waitingCount })}
+                    ? t('class.your_turn')
+                    : t('class.offer_expired')
+                  : t('class.position_row', { position: entry.position, total: waitingCount })}
               </p>
               <form action={leaveList}>
                 <input type="hidden" name="sessionId" value={session.id} />
                 <input type="hidden" name="entryId" value={entry.id} />
-                <button className="btn ghost" type="submit">{t('ora.varolistarol_le')}</button>
+                <button className="btn ghost" type="submit">{t('class.leave_waitlist')}</button>
               </form>
             </>
           )}

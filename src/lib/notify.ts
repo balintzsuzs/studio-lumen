@@ -1,7 +1,7 @@
 import 'server-only'
 import type { Payload } from 'payload'
 import { dateTimeLabel } from './format'
-import { forditó, type Fordito } from './i18n'
+import { translator, type Translator } from './i18n'
 import { isLang, type Lang } from './lang'
 
 /**
@@ -33,7 +33,7 @@ const idOf = (v: unknown): number =>
   typeof v === 'object' && v !== null ? (v as { id: number }).id : (v as number)
 
 /** The recipient's language, German by default. */
-const nyelve = (user: any): Lang => (isLang(user?.language) ? user.language : 'de')
+const language = (user: any): Lang => (isLang(user?.language) ? user.language : 'de')
 
 const SITE = () => process.env.SITE_URL ?? 'http://localhost:3000'
 
@@ -89,25 +89,25 @@ export const send = async (
   return { ok: status !== 'failed', notificationId: record.id as number }
 }
 
-const greeting = (t: Fordito, user: any) =>
-  t('level.megszolitas', { nev: user?.firstName ?? t('level.megszolitas_altalanos') })
+const greeting = (t: Translator, user: any) =>
+  t('email.greeting', { name: user?.firstName ?? t('email.greeting_generic') })
 
 /** From the greeting to the sign-off — every email is built this way. */
-const level = (t: Fordito, user: any, torzs: string) =>
-  `${greeting(t, user)}\n\n${torzs}${t('level.alairas')}`
+const level = (t: Translator, user: any, body: string) =>
+  `${greeting(t, user)}\n\n${body}${t('email.signature')}`
 
 /** Naming a class in an email: type, studio, time. */
 const describe = async (
   payload: Payload,
   sessionId: number,
-  t: Fordito,
+  t: Translator,
   lang: Lang,
 ): Promise<string> => {
   const s: any = await payload.findByID({ collection: 'sessions', id: sessionId, depth: 1 })
-  const type = s.classType?.name ?? t('level.ora_szo')
+  const type = s.classType?.name ?? t('email.class_word')
   const studio = s.studio?.city ?? s.studio?.name ?? ''
-  const hol = studio ? t('level.helyszin_kozott', { varos: studio }) : ''
-  return `${type}${hol}, ${dateTimeLabel(s.startsAt, lang)}`
+  const where = studio ? t('email.in_city', { city: studio }) : ''
+  return `${type}${where}, ${dateTimeLabel(s.startsAt, lang)}`
 }
 
 // ---------------------------------------------------------------- waitlist
@@ -120,17 +120,17 @@ export const waitlistOffer = async (
   expiresAt: Date,
 ) => {
   const user: any = await payload.findByID({ collection: 'users', id: userId, depth: 0 })
-  const lang = nyelve(user)
-  const t = forditó(lang)
+  const lang = language(user)
+  const t = translator(lang)
   const what = await describe(payload, sessionId, t, lang)
   return send(payload, {
     type: 'waitlist_offer',
     userId,
     sessionId,
-    subject: t('level.ajanlat_targy'),
-    body: level(t, user, t('level.ajanlat_torzs', {
-      mi: what,
-      hatarido: dateTimeLabel(expiresAt.toISOString(), lang),
+    subject: t('email.offer_subject'),
+    body: level(t, user, t('email.offer_body', {
+      what: what,
+      deadline: dateTimeLabel(expiresAt.toISOString(), lang),
       link: `${SITE()}/buchen/${sessionId}`,
     })),
   })
@@ -139,16 +139,16 @@ export const waitlistOffer = async (
 /** Shortly before the class: the spot is open to everyone. */
 export const waitlistReleased = async (payload: Payload, userId: number, sessionId: number) => {
   const user: any = await payload.findByID({ collection: 'users', id: userId, depth: 0 })
-  const lang = nyelve(user)
-  const t = forditó(lang)
+  const lang = language(user)
+  const t = translator(lang)
   const what = await describe(payload, sessionId, t, lang)
   return send(payload, {
     type: 'waitlist_released',
     userId,
     sessionId,
-    subject: t('level.felszabadult_targy'),
-    body: level(t, user, t('level.felszabadult_torzs', {
-      mi: what,
+    subject: t('email.released_subject'),
+    body: level(t, user, t('email.released_body', {
+      what: what,
       link: `${SITE()}/buchen/${sessionId}`,
     })),
   })
@@ -177,23 +177,23 @@ export const sessionChanged = async (
   // Is there any change that concerns the customer at all? The lines
   // are composed per recipient, because both the date and the labels
   // depend on the language.
-  const idoValtozott = Boolean(
+  const timeChanged = Boolean(
     change.oldStartsAt && change.newStartsAt && change.oldStartsAt !== change.newStartsAt)
-  const oktatoValtozott = Boolean(
+  const instructorChanged = Boolean(
     change.oldInstructor && change.newInstructor && change.oldInstructor !== change.newInstructor)
-  const helyValtozott = Boolean(
+  const locationChanged = Boolean(
     change.oldStudio && change.newStudio && change.oldStudio !== change.newStudio)
-  if (!idoValtozott && !oktatoValtozott && !helyValtozott) return { notified: 0 }
+  if (!timeChanged && !instructorChanged && !locationChanged) return { notified: 0 }
 
-  const sorok = (t: Fordito, lang: Lang) => {
-    const ki: string[] = []
-    if (idoValtozott)
-      ki.push(`  ${t('level.modositas_ido')}${dateTimeLabel(change.oldStartsAt!, lang)}\n              → ${dateTimeLabel(change.newStartsAt!, lang)}`)
-    if (oktatoValtozott)
-      ki.push(`  ${t('level.modositas_oktato')}${change.oldInstructor} → ${change.newInstructor}`)
-    if (helyValtozott)
-      ki.push(`  ${t('level.modositas_hely')}${change.oldStudio} → ${change.newStudio}`)
-    return ki.join('\n')
+  const rows = (t: Translator, lang: Lang) => {
+    const out: string[] = []
+    if (timeChanged)
+      out.push(`  ${t('email.change_time')}${dateTimeLabel(change.oldStartsAt!, lang)}\n              → ${dateTimeLabel(change.newStartsAt!, lang)}`)
+    if (instructorChanged)
+      out.push(`  ${t('email.change_instructor')}${change.oldInstructor} → ${change.newInstructor}`)
+    if (locationChanged)
+      out.push(`  ${t('email.change_location')}${change.oldStudio} → ${change.newStudio}`)
+    return out.join('\n')
   }
 
   const bookings = await payload.find({
@@ -205,16 +205,16 @@ export const sessionChanged = async (
   let notified = 0
   for (const b of bookings.docs as any[]) {
     const user: any = await payload.findByID({ collection: 'users', id: idOf(b.customer), depth: 0 })
-    const lang = nyelve(user)
-    const t = forditó(lang)
+    const lang = language(user)
+    const t = translator(lang)
     const r = await send(payload, {
       type: 'session_changed',
       userId: idOf(b.customer),
       sessionId,
       bookingId: b.id,
-      subject: t('level.modositas_targy'),
-      body: level(t, user, t('level.modositas_torzs', {
-        sorok: sorok(t, lang),
+      subject: t('email.change_subject'),
+      body: level(t, user, t('email.change_body', {
+        rows: rows(t, lang),
         link: `${SITE()}/konto`,
       })),
     })
@@ -239,21 +239,21 @@ export const sessionCancelled = async (
   let notified = 0
   for (const b of bookings.docs as any[]) {
     const user: any = await payload.findByID({ collection: 'users', id: idOf(b.customer), depth: 0 })
-    const lang = nyelve(user)
-    const t = forditó(lang)
+    const lang = language(user)
+    const t = translator(lang)
     const what = await describe(payload, sessionId, t, lang)
     const r = await send(payload, {
       type: 'session_cancelled',
       userId: idOf(b.customer),
       sessionId,
       bookingId: b.id,
-      subject: t('level.lemondas_targy'),
-      body: level(t, user, t('level.lemondas_torzs', {
-        mi: what,
-        indok: reason,
-        guthaben: refunded
-          ? t('level.lemondas_visszairva')
-          : t('level.lemondas_nem_valtozott'),
+      subject: t('email.cancel_subject'),
+      body: level(t, user, t('email.cancel_body', {
+        what: what,
+        reason: reason,
+        credits: refunded
+          ? t('email.cancel_credited')
+          : t('email.cancel_unchanged'),
         link: `${SITE()}/buchen`,
       })),
     })
@@ -264,11 +264,11 @@ export const sessionCancelled = async (
 
 // ------------------------------------------------------------- passes
 
-const MOD_KULCS = {
-  on_site: 'level.mod_on_site',
-  transfer: 'level.mod_transfer',
-  voucher: 'level.mod_voucher',
-  online: 'level.mod_online',
+const METHOD_KEYS = {
+  on_site: 'email.pay_on_site',
+  transfer: 'email.pay_transfer',
+  voucher: 'email.pay_voucher',
+  online: 'email.pay_online',
 } as const
 
 /**
@@ -285,19 +285,19 @@ export const aboOrdered = async (
   const abo: any = await payload.findByID({ collection: 'abos', id: aboId, depth: 1 })
   const settings = await payload.findGlobal({ slug: 'booking-settings' })
   const instructions = (settings?.paymentInstructions as string | undefined) ?? ''
-  const t = forditó(nyelve(user))
-  const modKulcs = MOD_KULCS[abo.paymentMethod as keyof typeof MOD_KULCS]
+  const t = translator(language(user))
+  const viewKey = METHOD_KEYS[abo.paymentMethod as keyof typeof METHOD_KEYS]
 
   const r = await send(payload, {
     type: 'abo_ordered',
     userId,
-    subject: t('level.rendeles_targy'),
-    body: level(t, user, t('level.rendeles_torzs', {
-      abo: abo.aboType?.name ?? '',
-      db: abo.aboType?.credits ?? 0,
-      ar: abo.aboType?.priceChf ?? 0,
-      mod: modKulcs ? t(modKulcs) : '',
-      utmutato: instructions,
+    subject: t('email.order_subject'),
+    body: level(t, user, t('email.order_body', {
+      pass: abo.aboType?.name ?? '',
+      count: abo.aboType?.credits ?? 0,
+      price: abo.aboType?.priceChf ?? 0,
+      method: viewKey ? t(viewKey) : '',
+      instructions: instructions,
     })),
   })
   return { ok: r.ok }
@@ -311,18 +311,18 @@ export const aboActivated = async (
 ): Promise<{ ok: boolean }> => {
   const user: any = await payload.findByID({ collection: 'users', id: userId, depth: 0 })
   const abo: any = await payload.findByID({ collection: 'abos', id: aboId, depth: 1 })
-  const lang = nyelve(user)
-  const t = forditó(lang)
+  const lang = language(user)
+  const t = translator(lang)
 
   const r = await send(payload, {
     type: 'abo_activated',
     userId,
-    subject: t('level.aktivalas_targy'),
-    body: level(t, user, t('level.aktivalas_torzs', {
-      abo: abo.aboType?.name ?? '',
-      db: abo.creditsRemaining ?? 0,
+    subject: t('email.activation_subject'),
+    body: level(t, user, t('email.activation_body', {
+      pass: abo.aboType?.name ?? '',
+      count: abo.creditsRemaining ?? 0,
       // Only the day is needed, not the time: expiry is day-precise.
-      ervenyes: dateTimeLabel(abo.expiresAt, lang).split(',').slice(0, 2).join(','),
+      valid: dateTimeLabel(abo.expiresAt, lang).split(',').slice(0, 2).join(','),
       link: `${SITE()}/buchen`,
     })),
   })

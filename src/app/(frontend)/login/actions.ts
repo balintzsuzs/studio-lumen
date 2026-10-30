@@ -12,10 +12,10 @@ export async function login(formData: FormData) {
   // instructors and admins at their classes, customers at the
   // schedule. Without this an instructor landed on the booking page
   // too, seeing exactly what a guest sees.
-  const kertUtvonal = String(formData.get('next') ?? '')
+  const requestedPath = String(formData.get('next') ?? '')
 
   let token: string | undefined
-  let szerep: string | undefined
+  let role: string | undefined
   try {
     const payload = await getPayload({ config })
     const result = await payload.login({
@@ -23,17 +23,17 @@ export async function login(formData: FormData) {
       data: { email, password },
     })
     token = result.token
-    szerep = (result.user as { role?: string } | undefined)?.role
+    role = (result.user as { role?: string } | undefined)?.role
   } catch {
     redirect(
-      `/login?fehler=hiba.rossz_jelszo${
-        kertUtvonal ? `&next=${encodeURIComponent(kertUtvonal)}` : ''
+      `/login?fehler=error.wrong_password${
+        requestedPath ? `&next=${encodeURIComponent(requestedPath)}` : ''
       }`,
     )
   }
 
   if (!token) {
-    redirect('/login?fehler=hiba.belepes_sikertelen')
+    redirect('/login?fehler=error.sign_in_failed')
   }
 
   const c = await cookies()
@@ -44,9 +44,9 @@ export async function login(formData: FormData) {
     secure: process.env.NODE_ENV === 'production',
     maxAge: 60 * 60 * 24 * 30,
   })
-  const alapertelmezett =
-    szerep === 'instructor' || szerep === 'admin' ? '/unterricht' : '/buchen'
-  redirect(kertUtvonal || alapertelmezett)
+  const fallback =
+    role === 'instructor' || role === 'admin' ? '/unterricht' : '/buchen'
+  redirect(requestedPath || fallback)
 }
 
 export async function logout() {

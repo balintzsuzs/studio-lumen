@@ -6,20 +6,20 @@ import { getCurrentUser } from '@/lib/auth'
 import { getSettings } from '@/lib/booking'
 import { dayLabel, timeLabel, shortDateLabel } from '@/lib/format'
 import { getLang } from '@/lib/lang'
-import { forditó, szotarKulcs, type SzotarKulcs } from '@/lib/i18n'
+import { translator, isDictionaryKey, type DictionaryKey } from '@/lib/i18n'
 import { cancel } from './actions'
 import { logout } from '../login/actions'
 
 export const dynamic = 'force-dynamic'
 
-const ALLAPOT_KULCS: Record<string, SzotarKulcs> = {
-  booked: 'oktora.status_booked',
-  attended: 'oktora.status_attended',
-  no_show: 'oktora.status_no_show',
+const STATUS_KEYS: Record<string, DictionaryKey> = {
+  booked: 'lesson.status_booked',
+  attended: 'lesson.status_attended',
+  no_show: 'lesson.status_no_show',
 }
 
 
-export default async function Konto({
+export default async function Account({
   searchParams,
 }: { searchParams: Promise<{ gebucht?: string; storniert?: string; fehler?: string }> }) {
   const { gebucht, storniert, fehler } = await searchParams
@@ -27,7 +27,7 @@ export default async function Konto({
   if (!user) redirect('/login?next=/konto')
 
   const lang = await getLang(user)
-  const t = forditó(lang)
+  const t = translator(lang)
 
   const payload = await getPayload({ config })
   const { cancellationHours } = await getSettings(payload)
@@ -54,41 +54,41 @@ export default async function Konto({
     <main className="shell wide">
       <header className="page-head">
         <div>
-          <p className="eyebrow">{t('konto.eyebrow')}</p>
+          <p className="eyebrow">{t('account.eyebrow')}</p>
           <h1>{user.firstName} {user.lastName}</h1>
         </div>
         <div className="who">
-          <Link href="/buchen">{t('kozos.stundenplan')}</Link>
+          <Link href="/buchen">{t('common.schedule')}</Link>
           <span aria-hidden="true"> · </span>
           {(user.role === 'instructor' || user.role === 'admin') && (
             <>
-              <Link href="/unterricht">{t('kozos.unterricht')}</Link>
+              <Link href="/unterricht">{t('common.teaching')}</Link>
               <span aria-hidden="true"> · </span>
             </>
           )}
           <form action={logout}>
-            <button className="linklike" type="submit">{t('kozos.abmelden')}</button>
+            <button className="linklike" type="submit">{t('common.sign_out')}</button>
           </form>
         </div>
       </header>
 
-      {gebucht && <p className="ok">{t('konto.gebucht')}</p>}
-      {storniert === 'gutgeschrieben' && <p className="ok">{t('konto.storno_jovairva')}</p>}
+      {gebucht && <p className="ok">{t('account.booked')}</p>}
+      {storniert === 'gutgeschrieben' && <p className="ok">{t('account.cancel_credited')}</p>}
       {storniert === 'verfallen' && (
-        <p className="alert">{t('konto.storno_elveszett', { ora: cancellationHours })}</p>
+        <p className="alert">{t('account.cancel_forfeited', { hours: cancellationHours })}</p>
       )}
-      {szotarKulcs(fehler) && <p className="alert">{t(fehler)}</p>}
+      {isDictionaryKey(fehler) && <p className="alert">{t(fehler)}</p>}
 
       <section>
-        <h2>{t('konto.abos')}</h2>
-        {abos.totalDocs === 0 && <p className="empty">{t('konto.nincs_abo')}</p>}
+        <h2>{t('account.passes')}</h2>
+        {abos.totalDocs === 0 && <p className="empty">{t('account.no_pass')}</p>}
         <ul className="cards">
           {(abos.docs as any[]).map((a) => (
             <li key={a.id}>
               <strong>{a.aboType?.name}</strong>
-              <span>{a.creditsRemaining} {t('kozos.guthaben')}</span>
+              <span>{a.creditsRemaining} {t('common.credits')}</span>
               <span className="muted">
-                {t('kozos.gueltig_bis')} {shortDateLabel(a.expiresAt, lang)}
+                {t('common.valid_until')} {shortDateLabel(a.expiresAt, lang)}
               </span>
             </li>
           ))}
@@ -96,8 +96,8 @@ export default async function Konto({
       </section>
 
       <section>
-        <h2>{t('konto.kovetkezo_orak')}</h2>
-        {upcoming.length === 0 && <p className="empty">{t('konto.nincs_foglalas')}</p>}
+        <h2>{t('account.upcoming_classes')}</h2>
+        {upcoming.length === 0 && <p className="empty">{t('account.no_bookings')}</p>}
         <ul className="bookings">
           {upcoming.map((b) => {
             const hoursLeft = (new Date(b.session.startsAt).getTime() - now) / 36e5
@@ -114,7 +114,7 @@ export default async function Konto({
                 <form action={cancel}>
                   <input type="hidden" name="bookingId" value={b.id} />
                   <button className="btn ghost small" type="submit">
-                    {freeCancel ? t('konto.stornieren') : t('konto.stornieren_elveszik')}
+                    {freeCancel ? t('account.cancel') : t('account.cancel_forfeits')}
                   </button>
                 </form>
               </li>
@@ -125,7 +125,7 @@ export default async function Konto({
 
       {past.length > 0 && (
         <section>
-          <h2>{t('konto.verlauf')}</h2>
+          <h2>{t('account.history')}</h2>
           <ul className="bookings past">
             {past.slice(0, 10).map((b) => (
               <li key={b.id}>
@@ -137,9 +137,9 @@ export default async function Konto({
                         ("attended"), but the customer reads the page in
                         their own language. So we translate it. */}
                     {b.status === 'cancelled'
-                      ? (b.creditRefunded ? t('konto.storno_gut') : t('konto.storno_verfallen'))
-                      : ALLAPOT_KULCS[b.status]
-                        ? t(ALLAPOT_KULCS[b.status])
+                      ? (b.creditRefunded ? t('account.cancelled_credited') : t('account.cancelled_forfeited'))
+                      : STATUS_KEYS[b.status]
+                        ? t(STATUS_KEYS[b.status])
                         : b.status}
                   </span>
                 </div>

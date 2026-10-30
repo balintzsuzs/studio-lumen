@@ -31,7 +31,7 @@ const DEMO_DOMAIN = '@demo.studio-lumen.ch'
  * From here on the demo customer has its own, collision-free address,
  * and `ensure()` never touches an account that is not a customer.
  */
-const DEMO_UGYFEL = { email: 'sandra', firstName: 'Sandra', lastName: 'Demo' }
+const DEMO_CUSTOMER = { email: 'sandra', firstName: 'Sandra', lastName: 'Demo' }
 
 /*
  * The demo visitors, who appear as booked on the floor plan.
@@ -138,8 +138,8 @@ export async function POST(request: Request) {
     }
 
     const demo = await ensure(
-      `${DEMO_UGYFEL.email}${DEMO_DOMAIN}`,
-      DEMO_UGYFEL.firstName, DEMO_UGYFEL.lastName, 10,
+      `${DEMO_CUSTOMER.email}${DEMO_DOMAIN}`,
+      DEMO_CUSTOMER.firstName, DEMO_CUSTOMER.lastName, 10,
     )
     const extras = []
     for (let i = 0; i < EXTRAS.length; i++) {
@@ -159,7 +159,7 @@ export async function POST(request: Request) {
       // We want three days' worth of classes, not seven of them: there are four a day.
       sort: 'startsAt', limit: 16, depth: 0,
     })
-    const orak = upcoming.docs as any[]
+    const lessons = upcoming.docs as any[]
 
     let booked = 0
 
@@ -178,44 +178,44 @@ export async function POST(request: Request) {
      * people to land on the waitlist. Zürich has six, where nobody
      * would be left over, so we do not look for a full class there.
      */
-    const teltOrak: number[] = []
-    let varolistan = 0
-    const hasznaltNapok = new Set<string>()
+    const fullLessons: number[] = []
+    let onWaitlist = 0
+    const usedDays = new Set<string>()
 
-    for (const s of orak) {
-      if (teltOrak.length >= 3) break
-      const nap = s.startsAt.slice(0, 10)
-      if (hasznaltNapok.has(nap)) continue
+    for (const s of lessons) {
+      if (fullLessons.length >= 3) break
+      const day = s.startsAt.slice(0, 10)
+      if (usedDays.has(day)) continue
 
-      const helyek = await getAvailability(payload, s.id)
+      const spots = await getAvailability(payload, s.id)
       // Only where there are fewer spots than guests — otherwise it
       // never fills and there is no waitlist.
-      if (helyek.length === 0 || helyek.length >= extras.length) continue
+      if (spots.length === 0 || spots.length >= extras.length) continue
 
-      let ide = 0
-      for (const u of extras.slice(0, helyek.length)) {
+      let added = 0
+      for (const u of extras.slice(0, spots.length)) {
         const r = await createBooking(payload, u.id, s.id)
-        if (r.ok) { booked++; ide++ }
+        if (r.ok) { booked++; added++ }
       }
-      if (ide === 0) continue
+      if (added === 0) continue
 
-      hasznaltNapok.add(nap)
-      teltOrak.push(s.id)
+      usedDays.add(day)
+      fullLessons.push(s.id)
 
       // Whoever did not fit goes onto the waitlist.
-      for (const u of extras.slice(helyek.length)) {
+      for (const u of extras.slice(spots.length)) {
         const r = await joinWaitlist(payload, u.id, s.id)
-        if (r.ok) varolistan++
+        if (r.ok) onWaitlist++
       }
     }
-    const teltOra: number | null = teltOrak[0] ?? null
+    const fullLesson: number | null = fullLessons[0] ?? null
 
     // The other classes fill partially, so the floor plan is not uniform.
-    let reszben = 0
-    for (const s of orak) {
-      if (teltOrak.includes(s.id)) continue
-      const howMany = [2, 3, 1, 3, 2][reszben % 5]
-      reszben++
+    let partly = 0
+    for (const s of lessons) {
+      if (fullLessons.includes(s.id)) continue
+      const howMany = [2, 3, 1, 3, 2][partly % 5]
+      partly++
       for (const u of extras.slice(0, howMany)) {
         const r = await createBooking(payload, u.id, s.id)
         if (r.ok) booked++
@@ -236,9 +236,9 @@ export async function POST(request: Request) {
      * fail silently. This is also what the studio does after a class:
      * it records attendance.
      */
-    let multbeli = 0
-    let nemJott = 0
-    const multOrak = (await payload.find({
+    let pastVisits = 0
+    let noShows = 0
+    const pastLessons = (await payload.find({
       collection: 'sessions',
       where: {
         and: [
@@ -249,33 +249,33 @@ export async function POST(request: Request) {
       sort: '-startsAt', limit: 6, depth: 0,
     })).docs as any[]
 
-    for (const [i, ora] of multOrak.entries()) {
-      const nyitott = (await payload.find({
+    for (const [i, lesson] of pastLessons.entries()) {
+      const open = (await payload.find({
         collection: 'bookings',
         where: {
-          and: [{ session: { equals: ora.id } }, { status: { equals: 'booked' } }],
+          and: [{ session: { equals: lesson.id } }, { status: { equals: 'booked' } }],
         },
         sort: 'bookedAt', limit: 20, depth: 0,
       })).docs as any[]
 
-      for (const [j, b] of nyitott.entries()) {
+      for (const [j, b] of open.entries()) {
         // In the most recent class one person did not show up. A
         // no-show is not a theoretical case: the reliability figures
         // are where it becomes visible.
-        const nemjelent = i === 0 && j === nyitott.length - 1 && nyitott.length > 1
-        const r = await markAttendance(payload, b.id, nemjelent ? 'no_show' : 'attended')
+        const isNoShow = i === 0 && j === open.length - 1 && open.length > 1
+        const r = await markAttendance(payload, b.id, isNoShow ? 'no_show' : 'attended')
         if (!r.ok) continue
-        if (nemjelent) nemJott++
-        else multbeli++
+        if (isNoShow) noShows++
+        else pastVisits++
       }
     }
 
     // One open pass order, so the Verwaltung page has something to do.
-    let nyitottRendeles: string | null = null
-    const utolso = extras[extras.length - 1]
-    if (utolso) {
-      const r = await orderAbo(payload, utolso.id, aboType.id, 'transfer')
-      if (r.ok) nyitottRendeles = utolso.email
+    let openOrder: string | null = null
+    const last = extras[extras.length - 1]
+    if (last) {
+      const r = await orderAbo(payload, last.id, aboType.id, 'transfer')
+      if (r.ok) openOrder = last.email
     }
 
     return Response.json({
@@ -284,12 +284,12 @@ export async function POST(request: Request) {
       extras: extras.length,
       bookings: booked,
       // For the demo: this is the class that filled, and where the waitlist shows.
-      volleSession: teltOra,
-      volleSessions: teltOrak,
-      warteliste: varolistan,
-      vergangeneBesuche: multbeli,
-      nichtErschienen: nemJott,
-      offeneBestellung: nyitottRendeles,
+      fullLesson: fullLesson,
+      fullLessons: fullLessons,
+      warteliste: onWaitlist,
+      pastVisits: pastVisits,
+      noShows: noShows,
+      openOrder: openOrder,
     })
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 })

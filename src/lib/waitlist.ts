@@ -1,5 +1,5 @@
 import 'server-only'
-import type { HibaKulcs } from './i18n'
+import type { ErrorKey } from './i18n'
 import { closeStaleSessions } from './attendance'
 import type { Payload } from 'payload'
 import { getSettings, getAvailability, createBooking, type WaitlistWindow } from './booking'
@@ -30,7 +30,7 @@ export const offerMinutesFor = (windows: WaitlistWindow[], startsAt: Date, now =
   return sorted[sorted.length - 1]?.offerMinutes ?? 20
 }
 
-export type JoinResult = { ok: true; entryId: number; position: number } | { ok: false; reason: HibaKulcs }
+export type JoinResult = { ok: true; entryId: number; position: number } | { ok: false; reason: ErrorKey }
 
 /** Joining the waitlist. Only for a full class, and only once. */
 export const joinWaitlist = async (
@@ -42,14 +42,14 @@ export const joinWaitlist = async (
   try {
     session = await payload.findByID({ collection: 'sessions', id: sessionId, depth: 0 })
   } catch {
-    return { ok: false, reason: 'hiba.ora_nincs' }
+    return { ok: false, reason: 'error.class_missing' }
   }
-  if (session.status === 'cancelled') return { ok: false, reason: 'hiba.ora_lemondva' }
+  if (session.status === 'cancelled') return { ok: false, reason: 'error.class_cancelled' }
   if (new Date(session.startsAt) <= new Date())
-    return { ok: false, reason: 'hiba.ora_elkezdodott' }
+    return { ok: false, reason: 'error.class_started' }
 
   const free = (await getAvailability(payload, sessionId)).filter((r) => r.status === 'free')
-  if (free.length) return { ok: false, reason: 'hiba.van_szabad_hely' }
+  if (free.length) return { ok: false, reason: 'error.spot_is_free' }
 
   const own = await payload.find({
     collection: 'waitlist-entries',
@@ -62,7 +62,7 @@ export const joinWaitlist = async (
     },
     limit: 1, depth: 0,
   })
-  if (own.totalDocs > 0) return { ok: false, reason: 'hiba.mar_varolistan' }
+  if (own.totalDocs > 0) return { ok: false, reason: 'error.already_waiting' }
 
   const all = await payload.find({
     collection: 'waitlist-entries',
@@ -83,14 +83,14 @@ export const leaveWaitlist = async (
   payload: Payload,
   userId: number,
   entryId: number,
-): Promise<{ ok: boolean; reason?: HibaKulcs }> => {
+): Promise<{ ok: boolean; reason?: ErrorKey }> => {
   let entry: any = null
   try {
     entry = await payload.findByID({ collection: 'waitlist-entries', id: entryId, depth: 0 })
   } catch {
-    return { ok: false, reason: 'hiba.bejegyzes_nincs' }
+    return { ok: false, reason: 'error.entry_not_found' }
   }
-  if (idOf(entry.customer) !== userId) return { ok: false, reason: 'hiba.nem_a_te_bejegyzesed' }
+  if (idOf(entry.customer) !== userId) return { ok: false, reason: 'error.not_your_entry' }
   await payload.update({
     collection: 'waitlist-entries', id: entryId, data: { status: 'withdrawn' },
   })
@@ -108,7 +108,7 @@ export type Offer = {
 export type PromoteResult =
   | { kind: 'offered'; offer: Offer }
   | { kind: 'released'; entryIds: number[] } // inside the lock window: open to everyone
-  | { kind: 'nothing'; reason: HibaKulcs }
+  | { kind: 'nothing'; reason: ErrorKey }
 
 /**
  * Offers a freed-up spot to the first person in the queue.
@@ -125,14 +125,14 @@ export const promoteWaitlist = async (
   try {
     session = await payload.findByID({ collection: 'sessions', id: sessionId, depth: 0 })
   } catch {
-    return { kind: 'nothing', reason: 'hiba.ora_nem_talalhato' }
+    return { kind: 'nothing', reason: 'error.class_not_found' }
   }
   const startsAt = new Date(session.startsAt)
   if (session.status === 'cancelled' || startsAt <= now)
-    return { kind: 'nothing', reason: 'hiba.ora_nem_foglalhato' }
+    return { kind: 'nothing', reason: 'error.class_not_bookable' }
 
   const free = (await getAvailability(payload, sessionId)).filter((r) => r.status === 'free')
-  if (!free.length) return { kind: 'nothing', reason: 'hiba.nincs_szabad_hely' }
+  if (!free.length) return { kind: 'nothing', reason: 'error.no_free_spot' }
 
   // Is there already a live offer? Then let it run out.
   const live = await payload.find({
@@ -146,14 +146,14 @@ export const promoteWaitlist = async (
     },
     limit: 1, depth: 0,
   })
-  if (live.totalDocs > 0) return { kind: 'nothing', reason: 'hiba.mar_fut_ajanlat' }
+  if (live.totalDocs > 0) return { kind: 'nothing', reason: 'error.offer_running' }
 
   const waiting = await payload.find({
     collection: 'waitlist-entries',
     where: { and: [{ session: { equals: sessionId } }, { status: { equals: 'waiting' } }] },
     sort: 'position', limit: 100, depth: 0,
   })
-  if (!waiting.docs.length) return { kind: 'nothing', reason: 'hiba.senki_a_varolistan' }
+  if (!waiting.docs.length) return { kind: 'nothing', reason: 'error.nobody_waiting' }
 
   const { waitlistWindows, waitlistLockHours } = await getSettings(payload)
   const hoursLeft = (startsAt.getTime() - now.getTime()) / 36e5
@@ -290,17 +290,17 @@ export const claimOffer = async (
   entryId: number,
   reformerId?: number,
   now = new Date(),
-): Promise<{ ok: true; bookingId: number } | { ok: false; reason: HibaKulcs }> => {
+): Promise<{ ok: true; bookingId: number } | { ok: false; reason: ErrorKey }> => {
   let entry: any = null
   try {
     entry = await payload.findByID({ collection: 'waitlist-entries', id: entryId, depth: 0 })
   } catch {
-    return { ok: false, reason: 'hiba.bejegyzes_nincs' }
+    return { ok: false, reason: 'error.entry_not_found' }
   }
-  if (idOf(entry.customer) !== userId) return { ok: false, reason: 'hiba.nem_a_te_bejegyzesed' }
-  if (entry.status !== 'offered') return { ok: false, reason: 'hiba.nincs_ajanlatod' }
+  if (idOf(entry.customer) !== userId) return { ok: false, reason: 'error.not_your_entry' }
+  if (entry.status !== 'offered') return { ok: false, reason: 'error.no_offer_for_you' }
   if (!entry.offerExpiresAt || new Date(entry.offerExpiresAt) <= now)
-    return { ok: false, reason: 'hiba.ajanlat_lejart' }
+    return { ok: false, reason: 'error.offer_expired' }
 
   const booked = await createBooking(payload, userId, idOf(entry.session), reformerId)
   if (!booked.ok) return booked

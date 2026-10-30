@@ -1,5 +1,5 @@
 import 'server-only'
-import type { HibaKulcs } from './i18n'
+import type { ErrorKey } from './i18n'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import type { Payload } from 'payload'
@@ -8,7 +8,6 @@ import type { Payload } from 'payload'
  * The business logic of booking, with the studio's rules:
  *
  *  - cancel at least 24 hours ahead, otherwise the credit is forfeited
- *    ("Lektionen müssen mindestens 24 Stunden vor Beginn abgesagt werden")
  *  - a minimum of 2 participants; if the studio cancels, the credit
  *    always comes back
  *  - no classes during a closure period
@@ -153,7 +152,7 @@ export const findUsableAbo = async (payload: Payload, userId: number) => {
 
 export type BookResult =
   | { ok: true; bookingId: number }
-  | { ok: false; reason: HibaKulcs }
+  | { ok: false; reason: ErrorKey }
 
 export const createBooking = async (
   payload: Payload,
@@ -162,13 +161,13 @@ export const createBooking = async (
   reformerId?: number,
 ): Promise<BookResult> => {
   const session: any = await findOrNull(payload, 'sessions', sessionId)
-  if (!session) return { ok: false, reason: 'hiba.ora_nincs' }
-  if (session.status === 'cancelled') return { ok: false, reason: 'hiba.ora_lemondva' }
+  if (!session) return { ok: false, reason: 'error.class_missing' }
+  if (session.status === 'cancelled') return { ok: false, reason: 'error.class_cancelled' }
   if (new Date(session.startsAt) <= new Date())
-    return { ok: false, reason: 'hiba.ora_elkezdodott' }
+    return { ok: false, reason: 'error.class_started' }
 
   const closure = await isClosed(payload, session)
-  if (closure) return { ok: false, reason: 'hiba.zarva' }
+  if (closure) return { ok: false, reason: 'error.closed' }
 
   // has this person already booked this class
   const own = await payload.find({
@@ -182,18 +181,18 @@ export const createBooking = async (
     },
     limit: 1, depth: 0,
   })
-  if (own.totalDocs > 0) return { ok: false, reason: 'hiba.mar_foglaltad' }
+  if (own.totalDocs > 0) return { ok: false, reason: 'error.already_booked' }
 
   const abo = await findUsableAbo(payload, userId)
-  if (!abo) return { ok: false, reason: 'hiba.nincs_ervenyes_abo' }
+  if (!abo) return { ok: false, reason: 'error.no_valid_pass' }
 
   const free = (await getAvailability(payload, sessionId)).filter((r) => r.status === 'free')
-  if (!free.length) return { ok: false, reason: 'hiba.ora_tele' }
+  if (!free.length) return { ok: false, reason: 'error.class_full' }
 
   let chosen = reformerId
   if (chosen) {
     if (!free.some((r) => r.reformerId === chosen))
-      return { ok: false, reason: 'hiba.gep_foglalt' }
+      return { ok: false, reason: 'error.reformer_taken' }
   } else {
     chosen = free[0].reformerId
   }
@@ -224,7 +223,7 @@ export const createBooking = async (
     return { ok: true, bookingId: booking.id as number }
   } catch (e) {
     if (tx) await payload.db.rollbackTransaction?.(tx)
-    return { ok: false, reason: 'hiba.foglalas_mentes' }
+    return { ok: false, reason: 'error.booking_save_failed' }
   }
 }
 
@@ -232,18 +231,18 @@ export const cancelBooking = async (
   payload: Payload,
   userId: number,
   bookingId: number,
-): Promise<{ ok: boolean; refunded: boolean; reason?: HibaKulcs }> => {
+): Promise<{ ok: boolean; refunded: boolean; reason?: ErrorKey }> => {
   let booking: any = null
   try {
     booking = await payload.findByID({ collection: 'bookings', id: bookingId, depth: 1 })
   } catch {
     booking = null
   }
-  if (!booking) return { ok: false, refunded: false, reason: 'hiba.buchung_nincs' }
+  if (!booking) return { ok: false, refunded: false, reason: 'error.booking_not_found' }
   if (idOf(booking.customer) !== userId)
-    return { ok: false, refunded: false, reason: 'hiba.nem_a_te_foglalasod' }
+    return { ok: false, refunded: false, reason: 'error.not_your_booking' }
   if (booking.status !== 'booked')
-    return { ok: false, refunded: false, reason: 'hiba.foglalas_nem_aktiv' }
+    return { ok: false, refunded: false, reason: 'error.booking_not_active' }
 
   const { cancellationHours } = await getSettings(payload)
   const start = new Date(booking.session.startsAt).getTime()
@@ -276,11 +275,11 @@ export const cancelBooking = async (
     return { ok: true, refunded: refund }
   } catch {
     if (tx) await payload.db.rollbackTransaction?.(tx)
-    return { ok: false, refunded: false, reason: 'hiba.storno_sikertelen' }
+    return { ok: false, refunded: false, reason: 'error.cancel_failed' }
   }
 }
 
-export type Teltseg = { foglalt: number; fero: number; szabad: number }
+export type Occupancy = { taken: number; capacity: number; free: number }
 
 /**
  * How full several classes are, in one pass.
@@ -293,22 +292,22 @@ export type Teltseg = { foglalt: number; fero: number; szabad: number }
  * maintenance reduces it automatically, exactly as it does at booking
  * time.
  */
-export const getTeltseg = async (
+export const getOccupancy = async (
   payload: Payload,
   sessions: { id: number; studio: unknown }[],
-): Promise<Map<number, Teltseg>> => {
-  const ki = new Map<number, Teltseg>()
-  if (!sessions.length) return ki
+): Promise<Map<number, Occupancy>> => {
+  const out = new Map<number, Occupancy>()
+  if (!sessions.length) return out
 
   const reformers = await payload.find({
     collection: 'reformers',
     where: { status: { equals: 'active' } },
     limit: 200, depth: 0,
   })
-  const feroStudionkent = new Map<number, number>()
+  const capacityPerStudio = new Map<number, number>()
   for (const r of reformers.docs as any[]) {
     const s = idOf(r.studio)
-    feroStudionkent.set(s, (feroStudionkent.get(s) ?? 0) + 1)
+    capacityPerStudio.set(s, (capacityPerStudio.get(s) ?? 0) + 1)
   }
 
   const bookings = await payload.find({
@@ -321,16 +320,16 @@ export const getTeltseg = async (
     },
     limit: 2000, depth: 0,
   })
-  const foglaltOrankent = new Map<number, number>()
+  const takenPerLesson = new Map<number, number>()
   for (const b of bookings.docs as any[]) {
     const s = idOf(b.session)
-    foglaltOrankent.set(s, (foglaltOrankent.get(s) ?? 0) + 1)
+    takenPerLesson.set(s, (takenPerLesson.get(s) ?? 0) + 1)
   }
 
   for (const s of sessions) {
-    const fero = feroStudionkent.get(idOf(s.studio)) ?? 0
-    const foglalt = foglaltOrankent.get(s.id) ?? 0
-    ki.set(s.id, { foglalt, fero, szabad: Math.max(0, fero - foglalt) })
+    const capacity = capacityPerStudio.get(idOf(s.studio)) ?? 0
+    const taken = takenPerLesson.get(s.id) ?? 0
+    out.set(s.id, { taken, capacity, free: Math.max(0, capacity - taken) })
   }
-  return ki
+  return out
 }

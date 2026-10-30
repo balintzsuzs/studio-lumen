@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { getCurrentUser } from '@/lib/auth'
-import { isLang, LANG_SUTI } from '@/lib/lang'
+import { isLang, LANG_COOKIE } from '@/lib/lang'
 
 /**
  * The booking system's language switch.
@@ -20,20 +20,20 @@ import { isLang, LANG_SUTI } from '@/lib/lang'
  * JavaScript, being an ordinary form submission.
  */
 export async function setLanguage(formData: FormData) {
-  const kert = String(formData.get('lang') ?? '')
-  if (!isLang(kert)) redirect('/buchen')
+  const requested = String(formData.get('lang') ?? '')
+  if (!isLang(requested)) redirect('/buchen')
 
-  const sutik = await cookies()
-  sutik.set(LANG_SUTI.nev, kert, LANG_SUTI.beallitas)
+  const cookieStore = await cookies()
+  cookieStore.set(LANG_COOKIE.name, requested, LANG_COOKIE.options)
 
   const user = await getCurrentUser()
-  if (user && user.language !== kert) {
+  if (user && user.language !== requested) {
     try {
       const payload = await getPayload({ config })
       await payload.update({
         collection: 'users',
         id: user.id as number,
-        data: { language: kert },
+        data: { language: requested },
         overrideAccess: true,
       })
     } catch {
@@ -45,6 +45,6 @@ export async function setLanguage(formData: FormData) {
 
   // Return to wherever the visitor came from. Only to our own paths,
   // so the field cannot be used to redirect to another site.
-  const vissza = String(formData.get('next') ?? '/buchen')
-  redirect(vissza.startsWith('/') && !vissza.startsWith('//') ? vissza : '/buchen')
+  const back = String(formData.get('next') ?? '/buchen')
+  redirect(back.startsWith('/') && !back.startsWith('//') ? back : '/buchen')
 }

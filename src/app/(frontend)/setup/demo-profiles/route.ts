@@ -9,9 +9,9 @@ import config from '@payload-config'
  * INVENTED data, on demo accounts. Never put a real customer's health
  * data in here.
  *
- *   curl -X POST http://localhost:3000/setup/demo-profilok
+ *   curl -X POST http://localhost:3000/setup/demo-profiles
  */
-const PROFILOK: Record<string, { isMatCustomer?: boolean; birthYear?: number; healthNotes?: string }> = {
+const PROFILES: Record<string, { isMatCustomer?: boolean; birthYear?: number; healthNotes?: string }> = {
   'gast1@demo.studio-lumen.ch': { isMatCustomer: true },
   'gast2@demo.studio-lumen.ch': { birthYear: new Date().getFullYear() - 21 },
   'gast3@demo.studio-lumen.ch': {
@@ -30,17 +30,17 @@ export async function POST() {
   }
   try {
     const payload = await getPayload({ config })
-    const kesz: string[] = []
-    for (const [email, adat] of Object.entries(PROFILOK)) {
-      const talalat = await payload.find({
+    const done: string[] = []
+    for (const [email, data] of Object.entries(PROFILES)) {
+      const match = await payload.find({
         collection: 'users', where: { email: { equals: email } }, limit: 1, depth: 0,
       })
-      const user = (talalat.docs as any[])[0]
+      const user = (match.docs as any[])[0]
       if (!user) continue
-      await payload.update({ collection: 'users', id: user.id, data: adat })
-      kesz.push(`${user.firstName}: ${Object.keys(adat).join(', ')}`)
+      await payload.update({ collection: 'users', id: user.id, data: data })
+      done.push(`${user.firstName}: ${Object.keys(data).join(', ')}`)
     }
-    return Response.json({ ok: true, beallitva: kesz })
+    return Response.json({ ok: true, configured: done })
   } catch (e) {
     return Response.json({ error: String(e) }, { status: 500 })
   }

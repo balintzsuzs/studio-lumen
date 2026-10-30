@@ -1,5 +1,5 @@
 import 'server-only'
-import type { HibaKulcs } from './i18n'
+import type { ErrorKey } from './i18n'
 import type { Payload } from 'payload'
 
 /**
@@ -19,15 +19,15 @@ export const markAttendance = async (
   payload: Payload,
   bookingId: number,
   attendance: Attendance,
-): Promise<{ ok: boolean; reason?: HibaKulcs }> => {
+): Promise<{ ok: boolean; reason?: ErrorKey }> => {
   let booking: any = null
   try {
     booking = await payload.findByID({ collection: 'bookings', id: bookingId, depth: 1 })
   } catch {
-    return { ok: false, reason: 'hiba.buchung_nincs' }
+    return { ok: false, reason: 'error.booking_not_found' }
   }
   if (booking.status === 'cancelled')
-    return { ok: false, reason: 'hiba.sztornozott_nem_jelenlet' }
+    return { ok: false, reason: 'error.cancelled_no_attendance' }
 
   await payload.update({
     collection: 'bookings',
@@ -59,15 +59,15 @@ export const markAttendance = async (
 export const closeSession = async (
   payload: Payload,
   sessionId: number,
-): Promise<{ ok: boolean; marked: number; reason?: HibaKulcs }> => {
+): Promise<{ ok: boolean; marked: number; reason?: ErrorKey }> => {
   let session: any = null
   try {
     session = await payload.findByID({ collection: 'sessions', id: sessionId, depth: 0 })
   } catch {
-    return { ok: false, marked: 0, reason: 'hiba.ora_nem_talalhato' }
+    return { ok: false, marked: 0, reason: 'error.class_not_found' }
   }
   if (new Date(session.startsAt) > new Date())
-    return { ok: false, marked: 0, reason: 'hiba.ora_meg_nem_kezdodott' }
+    return { ok: false, marked: 0, reason: 'error.class_not_started' }
 
   const open = await payload.find({
     collection: 'bookings',
@@ -106,12 +106,12 @@ export const closeStaleSessions = async (
   now = new Date(),
   limit = 50,
 ): Promise<{ sessions: number; marked: number }> => {
-  const hatar = new Date(now.getTime() - AUTO_CLOSE_HOURS * 36e5).toISOString()
-  const regi = await payload.find({
+  const bound = new Date(now.getTime() - AUTO_CLOSE_HOURS * 36e5).toISOString()
+  const old = await payload.find({
     collection: 'sessions',
     where: {
       and: [
-        { startsAt: { less_than: hatar } },
+        { startsAt: { less_than: bound } },
         { status: { equals: 'scheduled' } },
       ],
     },
@@ -120,7 +120,7 @@ export const closeStaleSessions = async (
 
   let sessions = 0
   let marked = 0
-  for (const s of regi.docs as any[]) {
+  for (const s of old.docs as any[]) {
     const r = await closeSession(payload, s.id)
     if (r.ok && r.marked > 0) {
       sessions++

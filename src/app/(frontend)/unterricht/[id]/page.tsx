@@ -5,10 +5,10 @@ import config from '@payload-config'
 import { getCurrentUser } from '@/lib/auth'
 import { getAvailability } from '@/lib/booking'
 import { getReliability } from '@/lib/attendance'
-import { reszvetelSzoveg, tarifaJelzesek } from '@/lib/resztvevo'
+import { attendanceText, tariffTags } from '@/lib/participant'
 import { dayLabel, timeLabel, dateTimeLabel, languageLabel } from '@/lib/format'
 import { getLang } from '@/lib/lang'
-import { forditó, szotarKulcs, type SzotarKulcs } from '@/lib/i18n'
+import { translator, isDictionaryKey, type DictionaryKey } from '@/lib/i18n'
 import { AUTO_CLOSE_HOURS } from '@/lib/attendance'
 import { setAttendance, close, cancelLesson, cancelTooFew, deleteLesson } from './actions'
 
@@ -17,11 +17,11 @@ export const dynamic = 'force-dynamic'
 const idOf = (v: unknown): number =>
   typeof v === 'object' && v !== null ? (v as { id: number }).id : (v as number)
 
-const STATUS_KULCS: Record<string, SzotarKulcs> = {
-  booked: 'oktora.status_booked',
-  attended: 'oktora.status_attended',
-  no_show: 'oktora.status_no_show',
-  cancelled: 'oktora.status_cancelled',
+const STATUS_KEYS: Record<string, DictionaryKey> = {
+  booked: 'lesson.status_booked',
+  attended: 'lesson.status_attended',
+  no_show: 'lesson.status_no_show',
+  cancelled: 'lesson.status_cancelled',
 }
 
 export default async function LessonPage({
@@ -42,7 +42,7 @@ export default async function LessonPage({
   if (user.role !== 'instructor' && user.role !== 'admin') redirect('/konto')
 
   const lang = await getLang(user)
-  const t = forditó(lang)
+  const t = translator(lang)
 
   const payload = await getPayload({ config })
   let session: any
@@ -85,14 +85,14 @@ export default async function LessonPage({
 
   return (
     <main className="shell wide">
-      <p className="back"><Link href="/unterricht">{t('kozos.unterricht_vissza')}</Link></p>
+      <p className="back"><Link href="/unterricht">{t('common.teaching_back')}</Link></p>
 
       <p className="eyebrow">{session.studio?.city}</p>
       <h1>{session.classType?.name}</h1>
       <p className="lead">
         {dayLabel(session.startsAt, lang)}, {timeLabel(session.startsAt, lang)}
         {lang === 'de' ? ' Uhr' : ''} ·{' '}
-        {session.durationMinutes} {t('kozos.minuten')}
+        {session.durationMinutes} {t('common.minutes')}
         {languageLabel(session) && ` · ${languageLabel(session)}`}
         {/* Who teaches the class. Now that every instructor sees every
             class, everyone needs this — otherwise they cannot tell
@@ -102,48 +102,48 @@ export default async function LessonPage({
           : ''}
       </p>
 
-      {szotarKulcs(fehler) && <p className="alert">{t(fehler)}</p>}
-      {angelegt && <p className="ok">{t('ujora.letrejott')}</p>}
-      {erfasst && <p className="ok">{t('oktora.felveve')}</p>}
+      {isDictionaryKey(fehler) && <p className="alert">{t(fehler)}</p>}
+      {angelegt && <p className="ok">{t('newclass.created')}</p>}
+      {erfasst && <p className="ok">{t('lesson.attendance_saved')}</p>}
       {geschlossen && (
         <p className="ok">
-          {t('oktora.lezarva', {
-            db: geschlossen,
-            szo: Number(geschlossen) === 1 ? t('oktora.buchung') : t('oktora.buchungen'),
+          {t('lesson.closed', {
+            count: geschlossen,
+            word: Number(geschlossen) === 1 ? t('lesson.booking') : t('lesson.bookings'),
           })}
         </p>
       )}
       {abgesagt && (
         <p className="ok">
-          {t('oktora.lemondva_info', {
-            db: abgesagt,
-            szo: Number(abgesagt) === 1 ? t('oktora.person') : t('oktora.personen'),
+          {t('lesson.cancelled_info', {
+            count: abgesagt,
+            word: Number(abgesagt) === 1 ? t('lesson.person') : t('lesson.people'),
           })}
         </p>
       )}
       {isCancelled && (
         <p className="alert">
-          {t('oktora.mar_lemondva', {
-            ok: session.cancellationReason ? `: ${session.cancellationReason}` : '.',
+          {t('lesson.already_cancelled', {
+            reason: session.cancellationReason ? `: ${session.cancellationReason}` : '.',
           })}
         </p>
       )}
 
       <section className="day">
-        <h2>{t('oktora.resztvevok', { db: active.length, osszes: spots.length })}</h2>
+        <h2>{t('lesson.participants', { count: active.length, total: spots.length })}</h2>
 
-        {rows.length === 0 && <p className="empty">{t('oktora.nincs_jelentkezo')}</p>}
+        {rows.length === 0 && <p className="empty">{t('lesson.no_registrations')}</p>}
 
         {rows.length > 0 && (
-          <div className="tabla-keret">
+          <div className="table-frame">
           <table className="list">
             <thead>
               <tr>
-                <th>{t('oktora.fejlec_nev')}</th>
-                <th>{t('oktora.fejlec_geraet')}</th>
-                <th>{t('oktora.fejlec_teilnahme')}</th>
-                <th>{t('oktora.fejlec_status')}</th>
-                {isPast && <th>{t('oktora.fejlec_anwesenheit')}</th>}
+                <th>{t('lesson.col_name')}</th>
+                <th>{t('lesson.col_reformer')}</th>
+                <th>{t('lesson.col_attending_with')}</th>
+                <th>{t('lesson.col_status')}</th>
+                {isPast && <th>{t('lesson.col_attendance')}</th>}
               </tr>
             </thead>
             <tbody>
@@ -159,36 +159,36 @@ export default async function LessonPage({
                       ) : (
                         <>{b.customer?.firstName} {b.customer?.lastName}</>
                       )}
-                      {tarifaJelzesek(b.customer, t).length > 0 && (
+                      {tariffTags(b.customer, t).length > 0 && (
                         <span className="tag">
-                          {tarifaJelzesek(b.customer, t).join(' · ')}
+                          {tariffTags(b.customer, t).join(' · ')}
                         </span>
                       )}
                       {b.customer?.healthNotes && (
-                        <span className="tag egeszseg">
-                          {t('oktora.gesundheit')}: {b.customer.healthNotes}
+                        <span className="tag health">
+                          {t('lesson.health')}: {b.customer.healthNotes}
                         </span>
                       )}
                       {rel && (rel.noShows > 0 || rel.lateCancels > 0) && (
                         <span className="tag">
-                          {rel.noShows > 0 && t('oktora.nem_jelent_meg_x', { db: rel.noShows })}
+                          {rel.noShows > 0 && t('lesson.no_show_count', { count: rel.noShows })}
                           {rel.noShows > 0 && rel.lateCancels > 0 && ' · '}
-                          {rel.lateCancels > 0 && t('oktora.keson_mondta_le_x', { db: rel.lateCancels })}
+                          {rel.lateCancels > 0 && t('lesson.late_cancel_count', { count: rel.lateCancels })}
                         </span>
                       )}
                     </td>
                     <td>{b.reformer?.label ?? '—'}</td>
-                    <td>{reszvetelSzoveg(b, t)}</td>
+                    <td>{attendanceText(b, t)}</td>
                     <td>
                       {/* On a finished class "gebucht" is not a status
                           but a not-touched-yet: by the rule, it means
                           attended. Do not say anything other than what
                           the system is going to do. */}
                       {isPast && b.status === 'booked'
-                        ? t('oktora.gilt_anwesend')
-                        : STATUS_KULCS[b.status] ? t(STATUS_KULCS[b.status]) : b.status}
-                      {b.status === 'cancelled' && b.cancellationType === 'late' && t('oktora.storno_keso')}
-                      {b.status === 'cancelled' && b.cancellationType === 'by_studio' && t('oktora.storno_studio')}
+                        ? t('lesson.counts_present')
+                        : STATUS_KEYS[b.status] ? t(STATUS_KEYS[b.status]) : b.status}
+                      {b.status === 'cancelled' && b.cancellationType === 'late' && t('lesson.cancel_late')}
+                      {b.status === 'cancelled' && b.cancellationType === 'by_studio' && t('lesson.cancel_studio')}
                     </td>
                     {isPast && (
                       <td>
@@ -212,8 +212,8 @@ export default async function LessonPage({
                               className={`mini ${b.status === 'no_show' ? 'on' : ''}`}
                             >
                               {b.status === 'no_show'
-                                ? t('oktora.megis_ott_volt')
-                                : t('oktora.fehlt')}
+                                ? t('lesson.was_here_after_all')
+                                : t('lesson.absent')}
                             </button>
                           </form>
                         )}
@@ -228,14 +228,14 @@ export default async function LessonPage({
         )}
 
         {isPast && !isCancelled && (
-          <p className="hint">{t('oktora.jelenlet_hint', { ora: AUTO_CLOSE_HOURS })}</p>
+          <p className="hint">{t('lesson.attendance_hint', { hours: AUTO_CLOSE_HOURS })}</p>
         )}
 
         {isPast && open.length > 0 && !isCancelled && (
           <form action={close} className="blockform">
             <input type="hidden" name="sessionId" value={sessionId} />
             <button className="btn ghost" type="submit">
-              {t('oktora.lezaras_gomb', { db: open.length })}
+              {t('lesson.close_button', { count: open.length })}
             </button>
           </form>
         )}
@@ -243,14 +243,14 @@ export default async function LessonPage({
 
       {waiting.docs.length > 0 && (
         <section className="day">
-          <h2>{t('oktora.varolista_cim', { db: waiting.docs.length })}</h2>
+          <h2>{t('lesson.waitlist_title', { count: waiting.docs.length })}</h2>
           <ul className="plain">
             {(waiting.docs as any[]).map((w) => (
               <li key={w.id}>
                 {w.position}. {w.customer?.firstName} {w.customer?.lastName}
                 {w.status === 'offered' && w.offerExpiresAt && (
                   <span className="tag">
-                    {t('oktora.hely_ajanlva', { datum: dateTimeLabel(w.offerExpiresAt, lang) })}
+                    {t('lesson.spot_offered', { date: dateTimeLabel(w.offerExpiresAt, lang) })}
                   </span>
                 )}
               </li>
@@ -261,24 +261,24 @@ export default async function LessonPage({
 
       {!isCancelled && !isPast && (
         <section className="day danger">
-          <h2>{t('oktora.lemondas_cim')}</h2>
-          <p className="hint">{t('oktora.lemondas_hint')}</p>
+          <h2>{t('lesson.cancel_title')}</h2>
+          <p className="hint">{t('lesson.cancel_hint')}</p>
 
           <form action={cancelLesson} className="blockform">
             <input type="hidden" name="sessionId" value={sessionId} />
             <input
               type="text"
               name="reason"
-              placeholder={t('oktora.ok_placeholder')}
+              placeholder={t('lesson.reason_placeholder')}
               required
             />
-            <button className="btn" type="submit">{t('oktora.lemond_gomb')}</button>
+            <button className="btn" type="submit">{t('lesson.cancel_button')}</button>
           </form>
 
           {active.length < 2 && (
             <form action={cancelTooFew} className="blockform">
               <input type="hidden" name="sessionId" value={sessionId} />
-              <button className="btn ghost" type="submit">{t('oktora.keves_gomb')}</button>
+              <button className="btn ghost" type="submit">{t('lesson.too_few_button')}</button>
             </form>
           )}
         </section>
@@ -293,11 +293,11 @@ export default async function LessonPage({
       */}
       {user.role === 'admin' && active.length === 0 && (
         <section className="day danger">
-          <h2>{t('ujora.torol_cim')}</h2>
-          <p className="hint">{t('ujora.torol_hint')}</p>
+          <h2>{t('newclass.delete_title')}</h2>
+          <p className="hint">{t('newclass.delete_hint')}</p>
           <form action={deleteLesson} className="blockform">
             <input type="hidden" name="sessionId" value={sessionId} />
-            <button className="btn ghost" type="submit">{t('ujora.torol_gomb')}</button>
+            <button className="btn ghost" type="submit">{t('newclass.delete_button')}</button>
           </form>
         </section>
       )}

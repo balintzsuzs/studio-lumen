@@ -41,9 +41,9 @@ const parts = (iso: string) => {
 /** "Donnerstag, 5. Juni" / "Thursday, 5 June" */
 export const dayLabel = (iso: string, lang: Lang = 'de') => {
   const p = parts(iso)
-  const nap = WEEKDAYS[lang][p.weekdayIndex]
-  const honap = MONTHS[lang][p.month - 1]
-  return lang === 'de' ? `${nap}, ${p.day}. ${honap}` : `${nap}, ${p.day} ${honap}`
+  const day = WEEKDAYS[lang][p.weekdayIndex]
+  const month = MONTHS[lang][p.month - 1]
+  return lang === 'de' ? `${day}, ${p.day}. ${month}` : `${day}, ${p.day} ${month}`
 }
 
 /**
@@ -53,8 +53,8 @@ export const dayLabel = (iso: string, lang: Lang = 'de') => {
  */
 export const timeLabel = (iso: string, lang: Lang = 'de') => {
   const p = parts(iso)
-  const elvalaszto = lang === 'de' ? '.' : ':'
-  return `${String(p.hour).padStart(2, '0')}${elvalaszto}${String(p.minute).padStart(2, '0')}`
+  const separator = lang === 'de' ? '.' : ':'
+  return `${String(p.hour).padStart(2, '0')}${separator}${String(p.minute).padStart(2, '0')}`
 }
 
 /** A full timestamp on one line, for notification emails. */
@@ -98,26 +98,26 @@ export const languageLabel = (session: any): string =>
     .join('/')
 
 /** Short weekday name for a calendar day (`'YYYY-MM-DD'`). */
-export const napNeveRovid = (nap: string, lang: Lang = 'de'): string => {
-  const [y, m, d] = nap.split('-').map(Number)
+export const dayNameShort = (day: string, lang: Lang = 'de'): string => {
+  const [y, m, d] = day.split('-').map(Number)
   const index = new Date(Date.UTC(y, m - 1, d)).getUTCDay()
   return WEEKDAYS[lang][index].slice(0, lang === 'de' ? 2 : 3)
 }
 
 /** Full weekday name for a calendar day. */
-export const napNeve = (nap: string, lang: Lang = 'de'): string => {
-  const [y, m, d] = nap.split('-').map(Number)
+export const dayName = (day: string, lang: Lang = 'de'): string => {
+  const [y, m, d] = day.split('-').map(Number)
   return WEEKDAYS[lang][new Date(Date.UTC(y, m - 1, d)).getUTCDay()]
 }
 
 /** "29. Oktober" / "29 October" for a calendar day. */
-export const napEsHonap = (nap: string, lang: Lang = 'de'): string => {
-  const [, m, d] = nap.split('-').map(Number)
+export const dayAndMonth = (day: string, lang: Lang = 'de'): string => {
+  const [, m, d] = day.split('-').map(Number)
   return lang === 'de' ? `${d}. ${MONTHS.de[m - 1]}` : `${d} ${MONTHS.en[m - 1]}`
 }
 
 /** "Oktober 2026" — for the calendar header. */
-export const honapEsEv = (nap: string, lang: Lang = 'de'): string => {
-  const [y, m] = nap.split('-').map(Number)
+export const monthAndYear = (day: string, lang: Lang = 'de'): string => {
+  const [y, m] = day.split('-').map(Number)
   return `${MONTHS[lang][m - 1]} ${y}`
 }

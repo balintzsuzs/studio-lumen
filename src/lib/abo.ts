@@ -1,5 +1,5 @@
 import 'server-only'
-import type { HibaKulcs } from './i18n'
+import type { ErrorKey } from './i18n'
 import type { Payload } from 'payload'
 import { aboOrdered, aboActivated } from './notify'
 
@@ -63,7 +63,7 @@ export const expiryFrom = (from: Date, validMonths: number): Date => {
 
 export type OrderResult =
   | { ok: true; aboId: number; priceChf: number; method: PaymentMethod }
-  | { ok: false; reason: HibaKulcs }
+  | { ok: false; reason: ErrorKey }
 
 /**
  * Placing an order. Deducts nothing and enables no booking — it only
@@ -82,16 +82,16 @@ export const orderAbo = async (
     user = await payload.findByID({ collection: 'users', id: userId, depth: 0 })
     type = await payload.findByID({ collection: 'abo-types', id: aboTypeId, depth: 0 })
   } catch {
-    return { ok: false, reason: 'hiba.abotipus_nincs' }
+    return { ok: false, reason: 'error.pass_type_missing' }
   }
-  if (!type.active) return { ok: false, reason: 'hiba.abo_nem_kaphato' }
+  if (!type.active) return { ok: false, reason: 'error.pass_unavailable' }
   if (type.tier === 'reduced' && !qualifiesForReduced(user))
     return {
       ok: false,
-      reason: 'hiba.csak_kedvezmenyes',
+      reason: 'error.reduced_only',
     }
   if (type.voucherOnly && method !== 'voucher')
-    return { ok: false, reason: 'hiba.abo_csak_utalvany' }
+    return { ok: false, reason: 'error.pass_voucher_only' }
 
   // One open order at a time, so duplicates do not pile up.
   const open = await payload.find({
@@ -102,7 +102,7 @@ export const orderAbo = async (
   if (open.totalDocs > 0)
     return {
       ok: false,
-      reason: 'hiba.mar_van_nyitott_rendeles',
+      reason: 'error.open_order_exists',
     }
 
   const now = new Date()
@@ -136,15 +136,15 @@ export const confirmPayment = async (
   payload: Payload,
   aboId: number,
   paidAt = new Date(),
-): Promise<{ ok: boolean; reason?: HibaKulcs; expiresAt?: string }> => {
+): Promise<{ ok: boolean; reason?: ErrorKey; expiresAt?: string }> => {
   let abo: any = null
   try {
     abo = await payload.findByID({ collection: 'abos', id: aboId, depth: 0 })
   } catch {
-    return { ok: false, reason: 'hiba.abo_nincs' }
+    return { ok: false, reason: 'error.pass_not_found' }
   }
   if (abo.status !== 'pending')
-    return { ok: false, reason: 'hiba.rendeles_nem_nyitott' }
+    return { ok: false, reason: 'error.order_not_open' }
 
   const type: any = await payload.findByID({
     collection: 'abo-types', id: idOf(abo.aboType), depth: 0,
@@ -171,17 +171,17 @@ export const cancelOrder = async (
   payload: Payload,
   aboId: number,
   byUserId?: number,
-): Promise<{ ok: boolean; reason?: HibaKulcs }> => {
+): Promise<{ ok: boolean; reason?: ErrorKey }> => {
   let abo: any = null
   try {
     abo = await payload.findByID({ collection: 'abos', id: aboId, depth: 0 })
   } catch {
-    return { ok: false, reason: 'hiba.abo_nincs' }
+    return { ok: false, reason: 'error.pass_not_found' }
   }
   if (byUserId !== undefined && idOf(abo.customer) !== byUserId)
-    return { ok: false, reason: 'hiba.nem_a_te_rendelesed' }
+    return { ok: false, reason: 'error.not_your_order' }
   if (abo.status !== 'pending')
-    return { ok: false, reason: 'hiba.csak_nyitott_vonhato_vissza' }
+    return { ok: false, reason: 'error.only_open_withdrawable' }
 
   await payload.update({ collection: 'abos', id: aboId, data: { status: 'cancelled' } })
   return { ok: true }

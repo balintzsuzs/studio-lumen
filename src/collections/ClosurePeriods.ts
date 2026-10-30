@@ -36,7 +36,7 @@ export const ClosurePeriods: CollectionConfig = {
       name: 'name',
       type: 'text',
       required: true,
-      admin: { description: 'Zum Beispiel "Sportferien Arth-Zürich 2027".' },
+      admin: { description: 'Zum Beispiel "Sportferien Zürich 2027".' },
     },
     { name: 'startsOn', type: 'date', label: 'Von', required: true },
     { name: 'endsOn', type: 'date', label: 'Bis und mit', required: true },

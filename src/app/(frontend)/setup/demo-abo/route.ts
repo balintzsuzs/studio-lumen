@@ -18,7 +18,7 @@ export async function POST() {
     where: { and: [{ customer: { equals: user.id } }, { status: { equals: 'active' } }] },
     limit: 1,
   })
-  if (existing.totalDocs) return Response.json({ ok: true, note: 'Abo existiert bereits.' })
+  if (existing.totalDocs) return Response.json({ ok: true, note: 'The pass already exists.' })
 
   const expires = new Date(); expires.setMonth(expires.getMonth() + 7)
   const abo = await payload.create({

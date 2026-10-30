@@ -15,10 +15,10 @@ import 'server-only'
  */
 
 /** Postgres means production. Locally the prototype uses an SQLite file. */
-export const elesAdatbazis = (): boolean =>
+export const liveDatabase = (): boolean =>
   /^postgres(ql)?:\/\//.test(process.env.DATABASE_URI ?? '')
 
-export type Tiltas = { tiltva: true; valasz: Response } | { tiltva: false }
+export type Block = { blocked: true; response: Response } | { blocked: false }
 
 /**
  * For routes that write test data. Returns the ready-made rejection
@@ -27,25 +27,25 @@ export type Tiltas = { tiltva: true; valasz: Response } | { tiltva: false }
  * `FORCE_TEST_ON_PRODUCTION=true` is deliberately awkward: if someone
  * really does want to test against production, let them spell it out.
  */
-export const tesztTiltas = (): Tiltas => {
+export const testBlock = (): Block => {
   if (process.env.ALLOW_SEED !== 'true') {
     return {
-      tiltva: true,
-      valasz: Response.json({ error: 'deaktiviert' }, { status: 403 }),
+      blocked: true,
+      response: Response.json({ error: 'deaktiviert' }, { status: 403 }),
     }
   }
-  if (elesAdatbazis() && process.env.FORCE_TEST_ON_PRODUCTION !== 'true') {
+  if (liveDatabase() && process.env.FORCE_TEST_ON_PRODUCTION !== 'true') {
     return {
-      tiltva: true,
-      valasz: Response.json(
+      blocked: true,
+      response: Response.json(
         {
-          error: 'Testlauf gegen die Produktionsdatenbank blockiert.',
-          hinweis:
-            'DATABASE_URI zeigt auf Postgres. Der Testlauf legt Testkundinnen und Testlektionen an; bleiben Reste zurück, sind sie in der Verwaltung sichtbar. Für den Testlauf die lokale SQLite-Datei verwenden.',
+          error: 'Test run against the production database blocked.',
+          note:
+            'DATABASE_URI points at Postgres. The test run creates test customers and test classes; anything left behind would show up in the administration view. Use the local SQLite file for the test run.',
         },
         { status: 409 },
       ),
     }
   }
-  return { tiltva: false }
+  return { blocked: false }
 }

@@ -39,6 +39,6 @@ export async function cancel(formData: FormData) {
   revalidatePath('/konto')
   revalidatePath('/buchen')
 
-  if (!res.ok) redirect(`/konto?fehler=${encodeURIComponent(res.reason ?? 'hiba.altalanos')}`)
+  if (!res.ok) redirect(`/konto?fehler=${encodeURIComponent(res.reason ?? 'error.generic')}`)
   redirect(res.refunded ? '/konto?storniert=gutgeschrieben' : '/konto?storniert=verfallen')
 }

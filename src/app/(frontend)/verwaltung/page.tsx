@@ -5,16 +5,16 @@ import config from '@payload-config'
 import { getCurrentUser } from '@/lib/auth'
 import { dateTimeLabel } from '@/lib/format'
 import { getLang } from '@/lib/lang'
-import { forditó, szotarKulcs, type SzotarKulcs } from '@/lib/i18n'
+import { translator, isDictionaryKey, type DictionaryKey } from '@/lib/i18n'
 import { confirm, reject } from './actions'
 
 export const dynamic = 'force-dynamic'
 
-const FIZETES_KULCS: Record<string, SzotarKulcs> = {
-  on_site: 'abos.fizetes_on_site',
-  transfer: 'abos.fizetes_transfer',
-  voucher: 'abos.fizetes_voucher',
-  online: 'abos.fizetes_online',
+const PAYMENT_KEYS: Record<string, DictionaryKey> = {
+  on_site: 'passes.pay_on_site',
+  transfer: 'passes.pay_transfer',
+  voucher: 'passes.pay_voucher',
+  online: 'passes.pay_online',
 }
 
 /**
@@ -22,7 +22,7 @@ const FIZETES_KULCS: Record<string, SzotarKulcs> = {
  * releasing once the payment has arrived. The Payload admin (/admin)
  * can do everything, but this page does the one thing quickly.
  */
-export default async function Verwaltung({
+export default async function Administration({
   searchParams,
 }: {
   searchParams: Promise<{ fehler?: string; freigeschaltet?: string; storniert?: string }>
@@ -33,7 +33,7 @@ export default async function Verwaltung({
   if (user.role !== 'admin') redirect('/konto')
 
   const lang = await getLang(user)
-  const t = forditó(lang)
+  const t = translator(lang)
 
   const payload = await getPayload({ config })
 
@@ -53,35 +53,35 @@ export default async function Verwaltung({
     <main className="shell wide">
       <header className="page-head">
         <div>
-          <p className="eyebrow">{t('verw.eyebrow')}</p>
-          <h1>{t('verw.cim')}</h1>
+          <p className="eyebrow">{t('admin.eyebrow')}</p>
+          <h1>{t('admin.title')}</h1>
         </div>
         <p className="who">
-          <Link href="/unterricht">{t('kozos.unterricht')}</Link>
+          <Link href="/unterricht">{t('common.teaching')}</Link>
           <span aria-hidden="true"> · </span>
-          <Link href="/kunden">{t('kunde.kundinnen')}</Link>
+          <Link href="/kunden">{t('customer.customers')}</Link>
           <span aria-hidden="true"> · </span>
-          <Link href="/admin">{t('kozos.admin')}</Link>
+          <Link href="/admin">{t('common.admin')}</Link>
         </p>
       </header>
 
-      {szotarKulcs(fehler) && <p className="alert">{t(fehler)}</p>}
-      {freigeschaltet && <p className="ok">{t('verw.felszabaditva')}</p>}
-      {storniert && <p className="ok">{t('verw.sztornozva')}</p>}
+      {isDictionaryKey(fehler) && <p className="alert">{t(fehler)}</p>}
+      {freigeschaltet && <p className="ok">{t('admin.released')}</p>}
+      {storniert && <p className="ok">{t('admin.order_cancelled')}</p>}
 
-      <p className="lead">{t('verw.lead')}</p>
+      <p className="lead">{t('admin.lead')}</p>
 
       {pending.docs.length === 0 ? (
-        <p className="empty">{t('verw.nincs_nyitott')}</p>
+        <p className="empty">{t('admin.no_open_orders')}</p>
       ) : (
         <table className="list">
           <thead>
             <tr>
-              <th>{t('verw.fej_kundin')}</th>
-              <th>{t('verw.fej_abo')}</th>
-              <th>{t('verw.fej_betrag')}</th>
-              <th>{t('verw.fej_zahlungsart')}</th>
-              <th>{t('verw.fej_bestellt')}</th>
+              <th>{t('admin.col_customer')}</th>
+              <th>{t('admin.col_pass')}</th>
+              <th>{t('admin.col_amount')}</th>
+              <th>{t('admin.col_payment_method')}</th>
+              <th>{t('admin.col_ordered')}</th>
               <th></th>
             </tr>
           </thead>
@@ -94,12 +94,12 @@ export default async function Verwaltung({
                 </td>
                 <td>
                   {a.aboType?.name}
-                  <span className="tag">{a.aboType?.credits} {t('kozos.lektionen')}</span>
+                  <span className="tag">{a.aboType?.credits} {t('common.classes')}</span>
                 </td>
                 <td>CHF {a.aboType?.priceChf}</td>
                 <td>
-                  {FIZETES_KULCS[a.paymentMethod]
-                    ? t(FIZETES_KULCS[a.paymentMethod])
+                  {PAYMENT_KEYS[a.paymentMethod]
+                    ? t(PAYMENT_KEYS[a.paymentMethod])
                     : a.paymentMethod}
                   {a.note && <span className="tag">{a.note}</span>}
                 </td>
@@ -108,11 +108,11 @@ export default async function Verwaltung({
                   <span className="rowactions">
                     <form action={confirm}>
                       <input type="hidden" name="aboId" value={a.id} />
-                      <button className="mini on" type="submit">{t('verw.bezahlt_gomb')}</button>
+                      <button className="mini on" type="submit">{t('admin.paid_button')}</button>
                     </form>
                     <form action={reject}>
                       <input type="hidden" name="aboId" value={a.id} />
-                      <button className="mini" type="submit">{t('verw.stornieren_gomb')}</button>
+                      <button className="mini" type="submit">{t('admin.cancel_button')}</button>
                     </form>
                   </span>
                 </td>
@@ -123,18 +123,18 @@ export default async function Verwaltung({
       )}
 
       <section className="day">
-        <h2>{t('verw.utoljara_cim')}</h2>
+        <h2>{t('admin.recently_released')}</h2>
         {recent.docs.length === 0 ? (
-          <p className="empty">{t('verw.nincs_aktiv')}</p>
+          <p className="empty">{t('admin.no_active')}</p>
         ) : (
           <ul className="plain">
             {(recent.docs as any[]).map((a) => (
               <li key={a.id}>
                 {a.customer?.firstName} {a.customer?.lastName} · {a.aboType?.name} ·{' '}
-                {a.creditsRemaining} {t('kozos.guthaben')}
+                {a.creditsRemaining} {t('common.credits')}
                 {a.paidAt && (
                   <span className="tag">
-                    {t('verw.bezahlt_cimke', { datum: dateTimeLabel(a.paidAt, lang) })}
+                    {t('admin.paid_label', { date: dateTimeLabel(a.paidAt, lang) })}
                   </span>
                 )}
               </li>

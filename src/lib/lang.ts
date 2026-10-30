@@ -20,14 +20,14 @@ import { cookies } from 'next/headers'
  */
 export type Lang = 'de' | 'en'
 
-export const NYELVEK: readonly Lang[] = ['de', 'en'] as const
+export const LANGUAGES: readonly Lang[] = ['de', 'en'] as const
 
 export const isLang = (v: unknown): v is Lang => v === 'de' || v === 'en'
 
 /** Cookie lifetime: one year, so nobody has to choose again on every visit. */
-export const LANG_SUTI = {
-  nev: 'lang',
-  beallitas: {
+export const LANG_COOKIE = {
+  name: 'lang',
+  options: {
     path: '/',
     maxAge: 60 * 60 * 24 * 365,
     sameSite: 'lax' as const,
@@ -39,18 +39,18 @@ export const LANG_SUTI = {
  * Payload's type is wide here, so the `language` field is read
  * defensively.
  */
-type NyelvesFelhasznalo = Record<string, unknown> | null | undefined
+type UserWithLanguage = Record<string, unknown> | null | undefined
 
-export async function getLang(user?: NyelvesFelhasznalo): Promise<Lang> {
-  const sutik = await cookies()
-  const sutiNyelv = sutik.get(LANG_SUTI.nev)?.value
-  if (isLang(sutiNyelv)) return sutiNyelv
+export async function getLang(user?: UserWithLanguage): Promise<Lang> {
+  const cookieStore = await cookies()
+  const cookieLang = cookieStore.get(LANG_COOKIE.name)?.value
+  if (isLang(cookieLang)) return cookieLang
 
-  const sajat = user?.language
-  if (isLang(sajat)) return sajat
+  const own = user?.language
+  if (isLang(own)) return own
 
   return 'de'
 }
 
 /** The other language — where the switch leads. */
-export const masikNyelv = (lang: Lang): Lang => (lang === 'de' ? 'en' : 'de')
+export const otherLang = (lang: Lang): Lang => (lang === 'de' ? 'en' : 'de')

@@ -3,30 +3,30 @@ import { notFound, redirect } from 'next/navigation'
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { getCurrentUser } from '@/lib/auth'
-import { kundeProfil, type KundeOra } from '@/lib/kunde'
+import { customerProfile, type CustomerLesson } from '@/lib/customer'
 import { dayLabel, timeLabel, shortDateLabel } from '@/lib/format'
 import { getLang } from '@/lib/lang'
-import { forditó, type Fordito, type SzotarKulcs } from '@/lib/i18n'
+import { translator, type Translator, type DictionaryKey } from '@/lib/i18n'
 
 export const dynamic = 'force-dynamic'
 
-const ALLAPOT_KULCS: Record<string, SzotarKulcs> = {
-  booked: 'oktora.status_booked',
-  attended: 'oktora.status_attended',
-  no_show: 'oktora.status_no_show',
-  cancelled: 'oktora.status_cancelled',
+const STATUS_KEYS: Record<string, DictionaryKey> = {
+  booked: 'lesson.status_booked',
+  attended: 'lesson.status_attended',
+  no_show: 'lesson.status_no_show',
+  cancelled: 'lesson.status_cancelled',
 }
 
-const ABO_STATUS_KULCS: Record<string, SzotarKulcs> = {
-  pending: 'kunde.abo_status_pending',
-  active: 'kunde.abo_status_active',
-  expired: 'kunde.abo_status_expired',
-  cancelled: 'kunde.abo_status_cancelled',
+const PASS_STATUS_KEYS: Record<string, DictionaryKey> = {
+  pending: 'customer.pass_status_pending',
+  active: 'customer.pass_status_active',
+  expired: 'customer.pass_status_expired',
+  cancelled: 'customer.pass_status_cancelled',
 }
 
-const ROLE_KULCS: Record<string, SzotarKulcs> = {
-  instructor: 'kunde.oktato_cimke',
-  admin: 'kunde.admin_cimke',
+const ROLE_KEYS: Record<string, DictionaryKey> = {
+  instructor: 'customer.instructor_tag',
+  admin: 'customer.admin_tag',
 }
 
 /**
@@ -34,117 +34,117 @@ const ROLE_KULCS: Record<string, SzotarKulcs> = {
  * rather than into a dead end: from there attendance can also be
  * corrected, if something comes to light afterwards.
  */
-const oraSor = (o: KundeOra, t: Fordito, lang: 'de' | 'en', allapottal: boolean) => (
-  <li key={o.bookingId} className={o.allapot === 'cancelled' ? 'muted' : undefined}>
-    <Link href={`/unterricht/${o.sessionId}`} className="kunde-ora-cim">
-      {o.cim || t('kozos.lektion')}
+const lessonRow = (o: CustomerLesson, t: Translator, lang: 'de' | 'en', withStatus: boolean) => (
+  <li key={o.bookingId} className={o.status === 'cancelled' ? 'muted' : undefined}>
+    <Link href={`/unterricht/${o.sessionId}`} className="customer-lesson-title">
+      {o.title || t('common.class')}
     </Link>
-    <span className="kunde-ora-ido">
-      {dayLabel(o.kezdet, lang)}, {timeLabel(o.kezdet, lang)}
+    <span className="customer-lesson-time">
+      {dayLabel(o.start, lang)}, {timeLabel(o.start, lang)}
       {lang === 'de' ? ' Uhr' : ''}
     </span>
-    <span className="kunde-ora-hol">
-      {[o.oktato, o.studio, o.gep].filter(Boolean).join(' · ')}
+    <span className="customer-lesson-where">
+      {[o.instructor, o.studio, o.reformer].filter(Boolean).join(' · ')}
     </span>
-    {allapottal && ALLAPOT_KULCS[o.allapot] && (
+    {withStatus && STATUS_KEYS[o.status] && (
       <span className="tag">
-        {t(ALLAPOT_KULCS[o.allapot])}
-        {o.allapot === 'cancelled' && o.lemondasTipus === 'late' && t('oktora.storno_keso')}
-        {o.allapot === 'cancelled' && o.lemondasTipus === 'by_studio' && t('oktora.storno_studio')}
+        {t(STATUS_KEYS[o.status])}
+        {o.status === 'cancelled' && o.cancellationType === 'late' && t('lesson.cancel_late')}
+        {o.status === 'cancelled' && o.cancellationType === 'by_studio' && t('lesson.cancel_studio')}
       </span>
     )}
   </li>
 )
 
-export default async function KundeOldal({ params }: { params: Promise<{ id: string }> }) {
+export default async function CustomerPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const kundeId = Number(id)
+  const customerId = Number(id)
 
   const user = await getCurrentUser()
-  if (!user) redirect(`/login?next=/kunden/${kundeId}`)
+  if (!user) redirect(`/login?next=/kunden/${customerId}`)
   if (user.role !== 'instructor' && user.role !== 'admin') redirect('/konto')
 
   const lang = await getLang(user)
-  const t = forditó(lang)
+  const t = translator(lang)
   const payload = await getPayload({ config })
 
-  const p = Number.isFinite(kundeId) ? await kundeProfil(payload, kundeId) : null
+  const p = Number.isFinite(customerId) ? await customerProfile(payload, customerId) : null
   if (!p) notFound()
 
-  const k = p.kunde
-  const nev = [k.firstName, k.lastName].filter(Boolean).join(' ') || k.email
-  const st = p.megbizhatosag
-  const nyitott = p.korabbi.filter((o) => o.allapot === 'booked').length
+  const k = p.customer
+  const name = [k.firstName, k.lastName].filter(Boolean).join(' ') || k.email
+  const st = p.reliability
+  const open = p.past.filter((o) => o.status === 'booked').length
 
   return (
     <main className="shell wide">
-      <p className="back"><Link href="/kunden">{t('kunde.lista_vissza')}</Link></p>
+      <p className="back"><Link href="/kunden">{t('customer.list_back')}</Link></p>
 
-      <h1>{nev}</h1>
+      <h1>{name}</h1>
       {/* Nothing rather than an empty paragraph: for a customer with no
           markers, the gap under the heading would look like a hole. */}
-      {(ROLE_KULCS[k.role] || k.isMatCustomer || p.youngMember) && (
+      {(ROLE_KEYS[k.role] || k.isMatCustomer || p.youngMember) && (
         <p className="lead">
-          {ROLE_KULCS[k.role] && <span className="tag">{t(ROLE_KULCS[k.role])}</span>}
-          {k.isMatCustomer && <span className="tag">{t('oktora.jelzes_matten')}</span>}
-          {p.youngMember && <span className="tag">{t('oktora.jelzes_young')}</span>}
+          {ROLE_KEYS[k.role] && <span className="tag">{t(ROLE_KEYS[k.role])}</span>}
+          {k.isMatCustomer && <span className="tag">{t('lesson.tag_mat')}</span>}
+          {p.youngMember && <span className="tag">{t('lesson.tag_young')}</span>}
         </p>
       )}
 
-      <div className="kunde-racs">
+      <div className="customer-grid">
         <section className="day">
-          <h2>{t('kunde.kontakt_cim')}</h2>
-          <dl className="adatlap">
+          <h2>{t('customer.contact_title')}</h2>
+          <dl className="datasheet">
             <dt>{t('login.email')}</dt>
             <dd><a href={`mailto:${k.email}`}>{k.email}</a></dd>
-            <dt>{t('kunde.telefon')}</dt>
+            <dt>{t('customer.phone')}</dt>
             <dd>
               {k.phone
                 ? <a href={`tel:${k.phone}`}>{k.phone}</a>
-                : <span className="halvany">{t('kunde.nincs_telefon')}</span>}
+                : <span className="faint">{t('customer.no_phone')}</span>}
             </dd>
             {k.birthYear && (
               <>
-                <dt>{t('kunde.jahrgang')}</dt>
+                <dt>{t('customer.birth_year')}</dt>
                 <dd>{k.birthYear}</dd>
               </>
             )}
-            <dt>{t('kunde.sprache')}</dt>
+            <dt>{t('customer.language')}</dt>
             <dd>{k.language === 'en' ? 'English' : 'Deutsch'}</dd>
           </dl>
           {/* Editing happens in the Payload admin: writing one field in
               two places would mean keeping two rules in step. */}
           <p className="hint">
-            <Link href={`/admin/collections/users/${k.id}`}>{t('kunde.szerkeszt')}</Link>
+            <Link href={`/admin/collections/users/${k.id}`}>{t('customer.edit_in_admin')}</Link>
           </p>
         </section>
 
         <section className="day">
-          <h2>{t('kunde.hinweise_cim')}</h2>
+          <h2>{t('customer.health_title')}</h2>
           {k.healthNotes
-            ? <p className="egeszseg-blokk">{k.healthNotes}</p>
-            : <p className="empty">{t('kunde.nincs_hinweis')}</p>}
+            ? <p className="health-block">{k.healthNotes}</p>
+            : <p className="empty">{t('customer.no_health_note')}</p>}
         </section>
       </div>
 
       <section className="day">
-        <h2>{t('kunde.abok_cim')}</h2>
-        {p.abok.length === 0 ? (
-          <p className="empty">{t('kunde.nincs_abo')}</p>
+        <h2>{t('customer.passes_title')}</h2>
+        {p.passes.length === 0 ? (
+          <p className="empty">{t('customer.no_pass')}</p>
         ) : (
           <>
-            <p className="hint">{t('kunde.kredit_osszesen', { db: p.kreditOsszesen })}</p>
+            <p className="hint">{t('customer.credits_total', { count: p.creditsTotal })}</p>
             <ul className="plain">
-              {p.abok.map((a: any) => (
+              {p.passes.map((a: any) => (
                 <li key={a.id} className={a.status === 'active' ? undefined : 'muted'}>
-                  {a.aboType?.name ?? t('kozos.lektion')}
+                  {a.aboType?.name ?? t('common.class')}
                   {' · '}
                   {a.creditsRemaining === 1
-                    ? t('kunde.abo_guthaben_egy')
-                    : t('kunde.abo_guthaben', { db: a.creditsRemaining ?? 0 })}
-                  {a.expiresAt && ` · ${t('kozos.gueltig_bis')} ${shortDateLabel(a.expiresAt, lang)}`}
-                  {ABO_STATUS_KULCS[a.status] && (
-                    <span className="tag">{t(ABO_STATUS_KULCS[a.status])}</span>
+                    ? t('customer.pass_credits_one')
+                    : t('customer.pass_credits', { count: a.creditsRemaining ?? 0 })}
+                  {a.expiresAt && ` · ${t('common.valid_until')} ${shortDateLabel(a.expiresAt, lang)}`}
+                  {PASS_STATUS_KEYS[a.status] && (
+                    <span className="tag">{t(PASS_STATUS_KEYS[a.status])}</span>
                   )}
                 </li>
               ))}
@@ -154,36 +154,36 @@ export default async function KundeOldal({ params }: { params: Promise<{ id: str
       </section>
 
       <section className="day">
-        <h2>{t('kunde.jovo_cim')}</h2>
-        {p.jovobeli.length === 0 ? (
-          <p className="empty">{t('kunde.nincs_jovo')}</p>
+        <h2>{t('customer.upcoming_title')}</h2>
+        {p.upcoming.length === 0 ? (
+          <p className="empty">{t('customer.no_upcoming')}</p>
         ) : (
-          <ul className="kunde-orak">
-            {p.jovobeli.map((o) => oraSor(o, t, lang, false))}
+          <ul className="customer-lessons">
+            {p.upcoming.map((o) => lessonRow(o, t, lang, false))}
           </ul>
         )}
       </section>
 
       <section className="day">
-        <h2>{t('kunde.korabbi_cim')}</h2>
-        {p.korabbi.length === 0 ? (
-          <p className="empty">{t('kunde.nincs_korabbi')}</p>
+        <h2>{t('customer.past_title')}</h2>
+        {p.past.length === 0 ? (
+          <p className="empty">{t('customer.no_past')}</p>
         ) : (
           <>
             {/* A past class still marked "gebucht" does not mean the
                 person was absent, but that nobody recorded attendance.
                 Unless we say so, the zero statistics look like a bug. */}
-            {nyitott > 0 && (
-              <p className="hint">{t('kunde.nyitott_jelenlet', { db: nyitott })}</p>
+            {open > 0 && (
+              <p className="hint">{t('customer.open_attendance', { count: open })}</p>
             )}
             <p className="hint">
-              {t('kunde.statisztika', {
-                besucht: st.attended, nem: st.noShows,
-                keso: st.lateCancels, idoben: st.inTimeCancels,
+              {t('customer.stats', {
+                attended: st.attended, no_show: st.noShows,
+                late: st.lateCancels, in_time: st.inTimeCancels,
               })}
             </p>
-            <ul className="kunde-orak">
-              {p.korabbi.map((o) => oraSor(o, t, lang, true))}
+            <ul className="customer-lessons">
+              {p.past.map((o) => lessonRow(o, t, lang, true))}
             </ul>
           </>
         )}

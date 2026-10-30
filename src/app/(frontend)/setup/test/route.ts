@@ -1,7 +1,7 @@
 import { getPayload } from 'payload'
 import config from '@payload-config'
 import { runAll } from '@/lib/test-suite'
-import { tesztTiltas } from '@/lib/guard'
+import { testBlock } from '@/lib/guard'
 
 /**
  * The full test suite for the booking rules.
@@ -14,8 +14,8 @@ import { tesztTiltas } from '@/lib/guard'
  *   curl -X POST http://localhost:3000/setup/test
  */
 export async function POST() {
-  const tiltas = tesztTiltas()
-  if (tiltas.tiltva) return tiltas.valasz
+  const block = testBlock()
+  if (block.blocked) return block.response
   try {
     const payload = await getPayload({ config })
     const cases = await runAll(payload)

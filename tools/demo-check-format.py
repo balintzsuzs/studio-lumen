@@ -8,28 +8,26 @@ import json
 import sys
 
 try:
-    adat = json.load(sys.stdin)
+    data = json.load(sys.stdin)
 except Exception:
-    print("  Nem sikerult lekerdezni az allapotot.")
+    print("  Could not read the status.")
     sys.exit(1)
 
-if "pontok" not in adat:
-    print("  Varatlan valasz:", adat)
+if "checks" not in data:
+    print("  Unexpected response:", data)
     sys.exit(1)
 
-for pont in adat["pontok"]:
-    jel = "OK  " if pont["rendben"] else "HIBA"
-    cim = pont["cim"]
-    reszlet = pont["reszlet"]
-    print("  [" + jel + "] " + cim)
-    print("         " + reszlet)
-    teendo = pont.get("teendo")
-    if teendo:
-        print("         -> " + teendo)
+for check in data["checks"]:
+    mark = "OK  " if check["ok"] else "FAIL"
+    print("  [" + mark + "] " + check["title"])
+    print("         " + check["detail"])
+    todo = check.get("todo")
+    if todo:
+        print("         -> " + todo)
 
 print()
-if adat["bemutathato"]:
-    print("  MINDEN RENDBEN - bemutathato.")
+if data["presentable"]:
+    print("  ALL IN ORDER - ready to show.")
 else:
-    print("  " + str(adat["hibak"]) + " item(s) not in order, see above.")
+    print("  " + str(data["errors"]) + " item(s) not in order, see above.")
     sys.exit(2)

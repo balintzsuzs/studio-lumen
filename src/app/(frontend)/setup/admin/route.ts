@@ -11,13 +11,13 @@ import config from '@payload-config'
  */
 export async function POST(req: Request) {
   if (process.env.ALLOW_SEED !== 'true') {
-    return Response.json({ error: 'Setup ist deaktiviert.' }, { status: 403 })
+    return Response.json({ error: 'Setup is disabled.' }, { status: 403 })
   }
   try {
     const payload = await getPayload({ config })
     const existing = await payload.find({ collection: 'users', limit: 1 })
     if (existing.totalDocs > 0) {
-      return Response.json({ ok: true, note: 'Es gibt bereits Benutzer.' })
+      return Response.json({ ok: true, note: 'There are users already.' })
     }
     const body = await req.json()
     const user = await payload.create({

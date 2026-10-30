@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { getClient } from '@/lib/booking'
 import { getCurrentUser } from '@/lib/auth'
-import { createSession } from '@/lib/ora'
+import { createSession } from '@/lib/lesson'
 
 /**
  * Creating a class from the studio view.
@@ -18,21 +18,21 @@ export async function addLesson(formData: FormData) {
   if (!user) redirect('/login?next=/unterricht')
   if (user.role !== 'admin') redirect('/unterricht')
 
-  const nap = String(formData.get('nap') ?? '').trim()
-  const ido = String(formData.get('ido') ?? '').trim()
-  const nyelv = String(formData.get('nyelv') ?? '')
+  const day = String(formData.get('day') ?? '').trim()
+  const time = String(formData.get('time') ?? '').trim()
+  const lang = String(formData.get('lang') ?? '')
 
   const payload = await getClient()
   const r = await createSession(payload, {
-    nap,
-    ido,
+    day,
+    time,
     classTypeId: Number(formData.get('classType')),
     studioId: Number(formData.get('studio')),
     instructorId: Number(formData.get('instructor')),
-    perc: Number(formData.get('perc')),
+    minutes: Number(formData.get('minutes')),
     // "auto": the instructor's own languages apply — the default case.
-    nyelvek: nyelv === 'de' ? ['de'] : nyelv === 'en' ? ['en'] : undefined,
-    megjegyzes: String(formData.get('megjegyzes') ?? '').trim() || undefined,
+    languages: lang === 'de' ? ['de'] : lang === 'en' ? ['en'] : undefined,
+    note: String(formData.get('note') ?? '').trim() || undefined,
   })
 
   revalidatePath('/unterricht')
@@ -41,8 +41,8 @@ export async function addLesson(formData: FormData) {
   if (!r.ok) {
     // Hand back what was filled in, so a single typo does not mean
     // retyping the whole form.
-    const q = new URLSearchParams({ fehler: r.reason, nap, ido })
-    redirect(`/unterricht?${q.toString()}&ansicht=nap&datum=${nap}`)
+    const q = new URLSearchParams({ fehler: r.reason, tag: day, zeit: time })
+    redirect(`/unterricht?${q.toString()}&ansicht=tag&datum=${day}`)
   }
   redirect(`/unterricht/${r.sessionId}?angelegt=1`)
 }
