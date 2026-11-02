@@ -50,7 +50,7 @@ is created by the `/setup/admin` route.
 
 | Collection | What it holds |
 |---|---|
-| `users` | customer / instructor / admin, Young Member birth year, mat-Pilates flag |
+| `users` | customer / instructor / admin, Young Member birth year |
 | `studios` | Zürich and Zug, number of rows |
 | `reformers` | machines with row/column position and status (active, maintenance) |
 | `class-types` | class types, credit cost, whether machines are used |
@@ -79,8 +79,8 @@ Zug     4 reformers   Row 1 (at the mirror): 2 machines
                       Row 2:                 2 machines
 ```
 
-Pass types, including the reduced tier for Young Members and mat-Pilates
-students. All prices are invented.
+Pass types, including the reduced tier for Young Members. All prices are
+invented.
 
 ## The website and the booking are one system
 
@@ -343,7 +343,7 @@ notifies everyone.
 `/unterricht/[id]` — the register:
 
 - participants' names, their machine, their pass and the credits left on it
-- health notes, Young Member and mat-Pilates markers
+- health notes and the Young Member marker
 - for a past class, one **"fehlt"** button per row, which can be undone
 - the waitlist, with the deadline of any running offer
 - **cancellation**: with a reason, plus a separate button for the
@@ -415,7 +415,7 @@ curl -X POST $BASE/setup/sessions                           # the schedule — n
 curl -X POST $BASE/setup/teachers     -H "$J" -d "{\"password\":\"$PW\"}"   # share the classes out now that they exist
 curl -X POST $BASE/setup/demo-access  -H "$J" -d "{\"password\":\"$PW\"}"   # the two demo logins, with admin rights
 curl -X POST $BASE/setup/demo-data    -H "$J" -d "{\"password\":\"$PW\"}"   # bookings, full classes, waitlist
-curl -X POST $BASE/setup/demo-profiles                      # health note, Young Member, mat customer
+curl -X POST $BASE/setup/demo-profiles                      # health note, Young Member
 curl      $BASE/setup/demo-check                            # is the demo ready
 ```
 
@@ -525,7 +525,7 @@ days). So ordering is not paying:
 **Validity runs from the release**, not from the order, so waiting does not eat
 into the pass.
 
-The reduced tier (Young Member 16–24, mat-Pilates students) is only shown to
+The reduced tier (Young Member 16–24) is only shown to
 someone who qualifies, and the order checks it server-side as well — so nothing
 has to be turned down afterwards. The voucher pass can only be ordered with a
 voucher.
