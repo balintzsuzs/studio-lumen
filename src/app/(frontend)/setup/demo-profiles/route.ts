@@ -2,23 +2,20 @@ import { getPayload } from 'payload'
 import config from '@payload-config'
 
 /**
- * Demo profiles for the register: so the instructor view shows all
- * three cases — a mat-Pilates customer, a Young Member, and a health
- * note.
+ * Demo profiles for the register: so the instructor view shows both
+ * cases — a Young Member and a health note.
  *
  * INVENTED data, on demo accounts. Never put a real customer's health
  * data in here.
  *
  *   curl -X POST http://localhost:3000/setup/demo-profiles
  */
-const PROFILES: Record<string, { isMatCustomer?: boolean; birthYear?: number; healthNotes?: string }> = {
-  'gast1@demo.studio-lumen.ch': { isMatCustomer: true },
+const PROFILES: Record<string, { birthYear?: number; healthNotes?: string }> = {
   'gast2@demo.studio-lumen.ch': { birthYear: new Date().getFullYear() - 21 },
   'gast3@demo.studio-lumen.ch': {
     healthNotes: 'Bandscheibenvorfall L4/L5, keine tiefe Flexion. Seit Juni beschwerdefrei.',
   },
   'gast4@demo.studio-lumen.ch': {
-    isMatCustomer: true,
     birthYear: new Date().getFullYear() - 23,
     healthNotes: 'Schulter rechts nach OP, bitte kein Zug über Kopfhöhe.',
   },

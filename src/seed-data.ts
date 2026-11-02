@@ -45,10 +45,6 @@ const aboTypes = [
 const classTypes = [
   { name: 'Reformer Flow', creditCost: 1, defaultDuration: 60, usesReformers: true,
     description: 'Reformer Pilates in kleiner Gruppe, barfuss oder in rutschfesten Socken.' },
-  { name: 'Matten Pilates, Gruppe', creditCost: 1, defaultDuration: 60, usesReformers: false,
-    description: 'Gruppentraining auf der Matte in Zürich.' },
-  { name: 'Pilates Care', creditCost: 1, defaultDuration: 60, usesReformers: false,
-    description: 'Klinisches Pilates, langsamer und kontrollierter.' },
 ]
 
 export const seed = async (payload: Payload) => {

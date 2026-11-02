@@ -13,7 +13,7 @@ import '../site.css'
 export const metadata: Metadata = {
   title: 'STUDIO LUMEN | Bewegung & integrative Gesundheit, Zürich & Zug',
   description:
-    'Reformer Pilates und Matten Pilates in Zürich und Zug. Ein Abo, zwei Standorte. Übungsprojekt mit erfundenen Daten.',
+    'Reformer Pilates in Zürich und Zug. Ein Abo, zwei Standorte. Übungsprojekt mit erfundenen Daten.',
 }
 
 export default function SiteLayout({ children }: { children: React.ReactNode }) {

@@ -103,15 +103,6 @@ export const Users: CollectionConfig = {
       },
     },
     {
-      name: 'isMatCustomer',
-      type: 'checkbox',
-      label: 'Besucht Matten-Pilates',
-      defaultValue: false,
-      admin: {
-        description: 'Berechtigt zusammen mit Young Member zum Spezialtarif.',
-      },
-    },
-    {
       /*
        * Which language they teach in. This belongs to the instructor,
        * because in practice it decides who leads a class: Elin teaches

@@ -36,7 +36,6 @@ export const attendanceText = (b: any, t: Translate): string => {
  */
 export const tariffTags = (customer: any, t: Translate): string[] => {
   const out: string[] = []
-  if (customer?.isMatCustomer) out.push(t('lesson.tag_mat'))
   if (isYoungMember(customer?.birthYear)) out.push(t('lesson.tag_young'))
   return out
 }

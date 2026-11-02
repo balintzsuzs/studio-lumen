@@ -12,7 +12,7 @@ import type { CollectionConfig } from 'payload'
  *   10er Abo          CHF 400 / 10 credits /  7 months
  *   20er Abo          CHF 760 / 20 credits / 12 months
  *   3er Abo           CHF 129 /  3 credits /  3 months (voucher only)
- * Young Member (16-24) and mat Pilates students: 25 / 40 / 195 / 360
+ * Young Member (16-24): 25 / 40 / 195 / 360
  */
 export const AboTypes: CollectionConfig = {
   slug: 'abo-types',
@@ -57,7 +57,7 @@ export const AboTypes: CollectionConfig = {
       defaultValue: 'standard',
       options: [
         { label: 'Standard', value: 'standard' },
-        { label: 'Young Member / Matten-Teilnehmende', value: 'reduced' },
+        { label: 'Young Member', value: 'reduced' },
       ],
     },
     {

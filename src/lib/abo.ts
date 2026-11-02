@@ -31,7 +31,7 @@ export const isYoungMember = (birthYear?: number | null, now = new Date()): bool
 
 /** Whether this person qualifies for the reduced rate. */
 export const qualifiesForReduced = (user: any, now = new Date()): boolean =>
-  Boolean(user?.isMatCustomer) || isYoungMember(user?.birthYear, now)
+  isYoungMember(user?.birthYear, now)
 
 /**
  * What this customer may order. The reduced rate is only shown to

@@ -1,7 +1,6 @@
 import { getCurrentUser } from '@/lib/auth'
 import { sendContact } from './actions'
 import SiteNav, { type NavUser } from './components/SiteNav'
-import AngebotTabs from './components/AngebotTabs'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,7 +24,6 @@ export default async function SitePage({
 
   return (
     <>
-      <AngebotTabs />
       <SiteNav user={user as NavUser} />
 
       <main id="top">
@@ -38,7 +36,7 @@ export default async function SitePage({
               <span className="badge">Zürich &amp; Zug</span>
               <h1>Bewegung &amp; integrative Gesundheit</h1>
               <p className="sub serif">Für körperliche Stärke, ein reguliertes Nervensystem und mentale Balance.</p>
-              <p className="small">Reformer Pilates und Matten Pilates in Zürich und Zug.</p>
+              <p className="small">Reformer Pilates in Zürich und Zug.</p>
               <a href="/buchen" className="btn btn-lg">Reformer buchen</a>
             </div>
           </div>
@@ -79,24 +77,17 @@ export default async function SitePage({
           </div>
         </section>
 
-        {/* ANGEBOT, tabbed */}
+        {/* ANGEBOT */}
         <section id="angebot">
           <div className="wrap">
             <div className="section-head">
               <p className="eyebrow">Angebot</p>
-              <h2>Reformer und Matten Pilates unter einem Dach</h2>
+              <h2>Reformer Pilates in kleinen Gruppen</h2>
               <p className="lead">Begleitet von Fachpersonen aus dem Gesundheitswesen, für Einsteiger*innen genauso wie für Fortgeschrittene.</p>
             </div>
 
-            <div className="tabs" role="tablist" id="angebotTabs">
-              <button className="tab" role="tab" aria-selected="true"  data-panel="p-reformer">Reformer Pilates</button>
-              <button className="tab" role="tab" aria-selected="false" data-panel="p-gruppe">Matten Pilates, Gruppe</button>
-              <button className="tab" role="tab" aria-selected="false" data-panel="p-personal">Matten Pilates, Personal</button>
-              <button className="tab" role="tab" aria-selected="false" data-panel="p-care">Pilates Care</button>
-              <button className="tab" role="tab" aria-selected="false" data-panel="p-autogen">Autogenes Training</button>
-            </div>
 
-            <div className="panel is-active" id="p-reformer" role="tabpanel">
+            <div className="panel is-active">
               <div className="panel-img"><img src="/bilder/reformer-weit.jpg" alt="Reformer Training" /></div>
               <div>
                 <h3>Reformer Pilates</h3>
@@ -110,50 +101,9 @@ export default async function SitePage({
               </div>
             </div>
 
-            <div className="panel" id="p-gruppe" role="tabpanel">
-              <div className="panel-img"><img src="/bilder/hero-studio.jpg" alt="Matten Pilates Gruppe" /></div>
-              <div>
-                <h3>Matten Pilates, Gruppe</h3>
-                <p className="meta">Zürich · Gruppentraining</p>
-                <p className="desc">Kräftigung der tiefen Bauch- und Rückenmuskulatur, Stabilisierung der Lendenwirbelsäule und eine aufrechte Körperhaltung, die auch im Alltag bleibt.</p>
-                <p className="price"><strong>10er Abo</strong> CHF 280 · <strong>25er Abo</strong> CHF 640</p>
-                <a href="mailto:info@studio-lumen.ch?subject=Probelektion%20Matten%20Pilates" className="btn">Probelektion vereinbaren</a>
-                <p className="panel-note">Kein passender Kurs dabei? Melde dich mit deinem Wunschtermin. Ab vier Personen startet ein neuer Gruppenkurs.</p>
-              </div>
-            </div>
 
-            <div className="panel" id="p-personal" role="tabpanel">
-              <div className="panel-img"><img src="/bilder/pilates-wand.jpg" alt="Matten Pilates Personaltraining" /></div>
-              <div>
-                <h3>Matten Pilates, Personal</h3>
-                <p className="meta">Zürich · Einzeltraining</p>
-                <p className="desc">Individuelles Training auf der Matte, Termin nach Absprache. Krankenkassen anerkannt, eine Rückerstattung ist je nach Versicherung möglich.</p>
-                <p className="price"><strong>Einzeln</strong> CHF 130 · <strong>5er</strong> CHF 600 · <strong>10er</strong> CHF 1100</p>
-                <a href="mailto:info@studio-lumen.ch?subject=Personaltraining%20Matten%20Pilates" className="btn">Termin anfragen</a>
-              </div>
-            </div>
 
-            <div className="panel" id="p-care" role="tabpanel">
-              <div className="panel-img"><img src="/bilder/reformer-plank.jpg" alt="Pilates Care" /></div>
-              <div>
-                <h3>Pilates Care</h3>
-                <p className="meta">Klinisches Pilates</p>
-                <p className="desc">Langsamer, präziser und kontrollierter, mit Theraband, auf der Matte, dem Stuhl und der Liege. Ein strukturiertes Aufbau-Programm mit PilatesCare Sequencing, in der Rehabilitation und als Prävention. Die Stabilität von Lenden- und Halswirbelsäule wird mit dem Stabilizer BioFeedback Pressure kontrolliert und gezielt geschult.</p>
-                <p className="price">Für diverse Krankheitsbilder geeignet.</p>
-                <a href="mailto:info@studio-lumen.ch?subject=Pilates%20Care" className="btn">Mehr erfahren</a>
-              </div>
-            </div>
 
-            <div className="panel" id="p-autogen" role="tabpanel">
-              <div className="panel-img"><img src="/bilder/see-sunset.jpg" alt="Autogenes Training" /></div>
-              <div>
-                <h3>Autogenes Training</h3>
-                <p className="meta">Nervensystem &amp; mentale Balance</p>
-                <p className="desc">Angeleitet von einer dipl. Trainerin für Autogenes Training. Eine Methode, um Anspannung und Stress bewusst zu regulieren.</p>
-                <p className="price">Details und Termine auf Anfrage.</p>
-                <a href="mailto:info@studio-lumen.ch?subject=Autogenes%20Training" className="btn">Anfragen</a>
-              </div>
-            </div>
           </div>
         </section>
 
@@ -210,9 +160,9 @@ export default async function SitePage({
                 </table>
 
                 <details className="fold" style={{ marginTop: "26px" }}>
-                  <summary>Spezialpreise <span className="price-tag">Young Member &amp; Matten-Teilnehmende</span></summary>
+                  <summary>Spezialpreise <span className="price-tag">Young Member</span></summary>
                   <div className="fold-body">
-                    <p className="price-note" style={{ marginTop: "0", marginBottom: "18px" }}>Für Young Member von 16 bis 24 Jahren und für alle, die bereits Matten-Pilates bei uns besuchen.</p>
+                    <p className="price-note" style={{ marginTop: "0", marginBottom: "18px" }}>Für Young Member von 16 bis 24 Jahren.</p>
                     <table className="price-table">
                       <thead>
                         <tr><th>Abonnement</th><th>Gültigkeit</th><th>Preis</th></tr>
@@ -228,22 +178,6 @@ export default async function SitePage({
                 </details>
               </div>
 
-              <div className="price-group">
-                <h3>Matten Pilates</h3>
-                <p className="where">Zürich</p>
-                <table className="price-table">
-                  <thead>
-                    <tr><th>Angebot</th><th>Form</th><th>Preis</th></tr>
-                  </thead>
-                  <tbody>
-                    <tr><td className="name">10er Abo</td><td className="valid">Gruppe</td><td className="amount">CHF 280</td></tr>
-                    <tr><td className="name">25er Abo</td><td className="valid">Gruppe</td><td className="amount">CHF 640</td></tr>
-                    <tr><td className="name">Einzeltraining</td><td className="valid">Personal</td><td className="amount">CHF 130</td></tr>
-                    <tr><td className="name">5er Abo</td><td className="valid">Personal</td><td className="amount">CHF 600</td></tr>
-                    <tr><td className="name">10er Abo</td><td className="valid">Personal</td><td className="amount">CHF 1100</td></tr>
-                  </tbody>
-                </table>
-              </div>
 
             </div>
 
@@ -279,7 +213,7 @@ export default async function SitePage({
                   </div>
                   <div>
                     <h4>Wenn du Beschwerden hast</h4>
-                    <p>Sag uns vor dem Training Bescheid. Wir passen die Übungen an. Für Rehabilitation und Prävention gibt es ausserdem Pilates Care.</p>
+                    <p>Sag uns vor dem Training Bescheid. Wir passen die Übungen an.</p>
                   </div>
                   <div>
                     <h4>Noch Fragen offen?</h4>
@@ -315,7 +249,7 @@ export default async function SitePage({
           </div>
         </section>
 
-        {/* SEEWEN */}
+        {/* ZUG */}
         <section id="zug" className="zug-band">
           <div className="wrap">
             <p className="eyebrow">Zwei Standorte</p>
@@ -354,8 +288,6 @@ export default async function SitePage({
             </div>
             <div className="gallery-grid">
               <a href="/bilder/reformer-wall.jpg" target="_blank" rel="noopener"><img src="/bilder/reformer-wall.jpg" alt="Reformer Training Wand" /></a>
-              <a href="/bilder/reformer-seance.jpg" target="_blank" rel="noopener"><img src="/bilder/reformer-seance.jpg" alt="Reformer Übung" /></a>
-              <a href="/bilder/reformer-mann.jpg" target="_blank" rel="noopener"><img src="/bilder/reformer-mann.jpg" alt="Mann auf dem Reformer" /></a>
               <a href="/bilder/reformer-frau3.jpg" target="_blank" rel="noopener"><img src="/bilder/reformer-frau3.jpg" alt="Reformer Training" /></a>
               <a href="/bilder/reformer-step.jpg" target="_blank" rel="noopener"><img src="/bilder/reformer-step.jpg" alt="Reformer Step" /></a>
               <a href="/bilder/reformer-ring.jpg" target="_blank" rel="noopener"><img src="/bilder/reformer-ring.jpg" alt="Reformer mit Pilates Ring" /></a>
@@ -392,7 +324,6 @@ export default async function SitePage({
                       <li>Dipl. Pilates Reha Trainerin</li>
                       <li>Reformer Trainerin</li>
                       <li>Dipl. Bewegungspädagogin</li>
-                      <li>Dipl. Trainerin für Autogenes Training</li>
                     </ul>
                   </div>
                 </details>
@@ -466,7 +397,7 @@ export default async function SitePage({
               <div className="loc">
                 <div className="loc-img"><img src="/bilder/reformer-wall.jpg" alt="Studio Zürich" /></div>
                 <div className="loc-body">
-                  <p className="tag">Matten- &amp; Reformertraining</p>
+                  <p className="tag">Reformertraining</p>
                   <h3>Studio Lumen, Zürich</h3>
                   <p>Werkgasse 7<br />8004 Zürich</p>
                   <a className="route" href="https://www.google.com/maps/search/?api=1&amp;query=Werkgasse+7+8004+Zürich" target="_blank" rel="noopener">Route öffnen</a>
@@ -535,9 +466,6 @@ export default async function SitePage({
               <h4>Angebot</h4>
               <ul>
                 <li><a href="#angebot">Reformer Pilates</a></li>
-                <li><a href="#angebot">Matten Pilates</a></li>
-                <li><a href="#angebot">Pilates Care</a></li>
-                <li><a href="#angebot">Autogenes Training</a></li>
                 <li><a href="#preise">Preise</a></li>
               </ul>
             </div>

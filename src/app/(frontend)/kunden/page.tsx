@@ -91,9 +91,8 @@ export default async function Customers({ searchParams }: { searchParams: Search
                       {k.health && (
                         <span className="tag health">{t('customer.has_health_note')}</span>
                       )}
-                      {k.matCustomer && <span className="tag">{t('lesson.tag_mat')}</span>}
                       {k.youngMember && <span className="tag">{t('lesson.tag_young')}</span>}
-                      {!k.health && !k.matCustomer && !k.youngMember && '—'}
+                      {!k.health && !k.youngMember && '—'}
                     </td>
                   </tr>
                 ))}

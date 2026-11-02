@@ -12,7 +12,7 @@ import '../site.css'
 export const metadata: Metadata = {
   title: 'STUDIO LUMEN | Movement & integrative health, Zürich & Zug',
   description:
-    'Reformer Pilates and mat Pilates in Zürich and Zug. One pass, two locations. A practice project with invented data.',
+    'Reformer Pilates in Zürich and Zug. One pass, two locations. A practice project with invented data.',
 }
 
 export default function SiteLayoutEn({ children }: { children: React.ReactNode }) {

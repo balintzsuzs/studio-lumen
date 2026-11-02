@@ -6,11 +6,8 @@ import type { CollectionConfig } from 'payload'
  * It can differ per class type and per studio, so it is not a fixed
  * rule but a period you enter:
  *
- *   - Mat Pilates: no classes during the local school holidays
- *     (that is what the mat terms say)
- *   - Reformer: classes DO run during school holidays
- *   - Christmas and New Year week: closed under the mat terms; for
- *     reformer the owner has to confirm it, so it is not hard-coded
+ *   - Christmas and New Year week, for instance, which the owner
+ *     confirms rather than the system assuming it
  *
  * An empty `classTypes` or `studios` means it applies to all of them.
  */
@@ -48,8 +45,7 @@ export const ClosurePeriods: CollectionConfig = {
       label: 'Betrifft diese Kursarten',
       admin: {
         description:
-          'Leer lassen für alle Kursarten. Die Schulferien betreffen nur Matten Pilates, '
-          + 'Reformer-Lektionen finden statt.',
+          'Leer lassen für alle Kursarten, sonst gilt die Schliessung nur für die gewählten.',
       },
     },
     {

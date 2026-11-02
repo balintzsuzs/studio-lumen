@@ -134,7 +134,6 @@ export type CustomerRow = {
   /** Whether a health note exists — its content is not shown in the list. */
   health: boolean
   youngMember: boolean
-  matCustomer: boolean
 }
 
 /**
@@ -167,7 +166,6 @@ export const customerList = async (
     phone: u.phone || undefined,
     health: Boolean(u.healthNotes),
     youngMember: isYoungMember(u.birthYear),
-    matCustomer: Boolean(u.isMatCustomer),
   }))
 }
 

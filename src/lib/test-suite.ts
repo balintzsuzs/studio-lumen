@@ -1134,8 +1134,8 @@ export const runAll = async (payload: Payload): Promise<Case[]> => {
     add('25 years old is not any more', !isYoungMember(2001, now))
     add('15 years old is not yet', !isYoungMember(2011, now))
     add('Without a year of birth, no Young Member', !isYoungMember(undefined, now))
-    add('Mat-class participants qualify', qualifiesForReduced({ isMatCustomer: true }))
-    add('Without either, no entitlement', !qualifiesForReduced({ isMatCustomer: false }))
+    add('A Young Member qualifies', qualifiesForReduced({ birthYear: 2005 }, now))
+    add('Outside that age, no entitlement', !qualifiesForReduced({ birthYear: 1990 }, now))
   })
 
   await section("computing validity", async () => {

@@ -83,10 +83,9 @@ export default async function CustomerPage({ params }: { params: Promise<{ id: s
       <h1>{name}</h1>
       {/* Nothing rather than an empty paragraph: for a customer with no
           markers, the gap under the heading would look like a hole. */}
-      {(ROLE_KEYS[k.role] || k.isMatCustomer || p.youngMember) && (
+      {(ROLE_KEYS[k.role] || p.youngMember) && (
         <p className="lead">
           {ROLE_KEYS[k.role] && <span className="tag">{t(ROLE_KEYS[k.role])}</span>}
-          {k.isMatCustomer && <span className="tag">{t('lesson.tag_mat')}</span>}
           {p.youngMember && <span className="tag">{t('lesson.tag_young')}</span>}
         </p>
       )}
