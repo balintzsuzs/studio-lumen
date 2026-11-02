@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "payload": "NODE_OPTIONS=--no-deprecation payload",
     "generate:types": "payload generate:types"
   },
   "dependencies": {

@@ -563,6 +563,11 @@ What you need: a **GitHub** account (the code goes there), a **Vercel**
 account, and a **Postgres** database — [Neon](https://neon.tech)'s free plan is
 enough.
 
+Everything that writes to the database — building the schema and seeding the
+demo — is done from your own machine, pointed at the production database. The
+`/setup/*` routes are therefore never opened on the public address, and
+`ALLOW_SEED` never has to be set on Vercel at all.
+
 ```bash
 # 1. the code to GitHub
 git add -A && git commit -m "Website and booking system"
@@ -570,25 +575,63 @@ git remote add origin git@github.com:<user>/studio-lumen.git
 git push -u origin main
 ```
 
-2. In Neon, create a project and copy the connection string
-   (`postgresql://…?sslmode=require`).
+2. In Neon, create a project and copy the **pooled** connection string — the
+   one with `-pooler` in the host name. Serverless functions open a new
+   connection on nearly every request, and the direct connection runs out.
 
 3. On Vercel, *Add New → Project* and pick the repository. Environment
-   variables (Settings → Environment Variables):
+   variables (Settings → Environments → Production):
 
 | Variable | Value |
 |---|---|
-| `DATABASE_URI` | the Neon connection string |
+| `DATABASE_URI` | the Neon pooled connection string |
 | `PAYLOAD_SECRET` | `openssl rand -base64 32` |
 | `SITE_URL` | the Vercel address, e.g. `https://studio-lumen-demo.vercel.app` |
 | `CRON_SECRET` | `openssl rand -hex 24` |
-| `ALLOW_SEED` | `true` **for the first seeding only**, then delete it |
 
-4. After the first deploy, seed the data with the sequence under
-   "Seeding and refreshing the demo data" above, pointed at the live address.
+   The variable is called `DATABASE_URI`, with an I. Neon's own snippets name
+   it `DATABASE_URL`, and the misspelling deploys fine and then fails at the
+   first query.
 
-5. **Delete the `ALLOW_SEED` variable** and trigger another deploy. That closes
-   the `/setup/*` routes.
+   `SITE_URL` cannot be known before the first deploy: Vercel adds a suffix
+   when the plain project name is taken. Fill it in with your best guess and
+   correct it afterwards — it only affects links inside emails, and no email
+   provider is configured.
+
+4. Deploy. The site comes up, but every page that touches the database fails:
+   the Neon database is still empty.
+
+5. **Build the schema**, from your own machine. In development Payload pushes
+   the schema itself, so a local dev server pointed at Neon is all it takes.
+   Put the connection string in `.env.neon` (git ignores every `.env*`):
+
+   ```bash
+   DATABASE_URI=$(cut -d= -f2- .env.neon | tr -d '"') npx next dev -p 3100
+   ```
+
+   Open <http://localhost:3100/admin> and wait. The first load takes half a
+   minute — that is Payload creating the 26 tables over the network. Once the
+   login page appears, the schema is there. Leave the server running.
+
+6. **Seed the demo** from a second terminal, against that same local server —
+   not against the Vercel address. It writes to the same Neon database.
+   The order is under "Seeding and refreshing the demo data" above; use
+   `BASE=http://localhost:3100`. Then stop the server with Ctrl+C.
+
+7. Delete `.env.neon`. It holds the database password in plain text.
+
+The live site should now answer `/setup/demo-check` with all six checks in
+order. That route needs no `ALLOW_SEED`, by design — it only reads.
+
+### When the schema changes later
+
+A new field or a renamed one does not reach production on its own. Repeat
+step 5: point a local dev server at Neon and let Payload push the change.
+Payload's own migration files would be the stricter answer, but its CLI
+(`payload migrate:create`) is unusable here — it loads `undici` twice through
+its `tsx` loader and dies with `TypeError: Illegal constructor`, on Node 22 and
+24 alike. Should that get fixed upstream, migrations are the better path for
+anything beyond a demo.
 
 ### Scheduling for the waitlist
 
