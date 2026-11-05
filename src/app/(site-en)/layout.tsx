@@ -10,7 +10,7 @@ import '../site.css'
  * only the text differs.
  */
 export const metadata: Metadata = {
-  title: 'STUDIO LUMEN | Movement & integrative health, Zürich & Zug',
+  title: 'STUDIO LUMEN | Reformer Pilates in Zürich & Zug',
   description:
     'Reformer Pilates in Zürich and Zug. One pass, two locations. A practice project with invented data.',
 }

@@ -11,7 +11,7 @@ import '../site.css'
  * collide: `/` and `/buchen` never render on the same page.
  */
 export const metadata: Metadata = {
-  title: 'STUDIO LUMEN | Bewegung & integrative Gesundheit, Zürich & Zug',
+  title: 'STUDIO LUMEN | Reformer Pilates in Zürich & Zug',
   description:
     'Reformer Pilates in Zürich und Zug. Ein Abo, zwei Standorte. Übungsprojekt mit erfundenen Daten.',
 }

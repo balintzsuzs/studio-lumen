@@ -32,9 +32,9 @@ export default async function SitePageEn({
           <div className="wrap">
             <div className="hero-copy">
               <span className="badge">Zürich &amp; Zug</span>
-              <h1>Movement &amp; integrative health</h1>
-              <p className="sub serif">For physical strength, a regulated nervous system and mental balance.</p>
-              <p className="small">Reformer Pilates in Zurich and Zug.</p>
+              <h1>Strength that feels good</h1>
+              <p className="sub serif">Reformer Pilates in small groups, with time for every movement</p>
+              <p className="small">For first-timers and regulars alike</p>
               <a href="/buchen" className="btn btn-lg">Book a class</a>
             </div>
           </div>
@@ -452,7 +452,7 @@ export default async function SitePageEn({
           <div className="foot-cols">
             <div className="foot-brand">
               <a href="#top" className="logo"><img src="/bilder/logo.png" alt="Studio Lumen" /> STUDIO LUMEN</a>
-              <p>Movement and integrative health in Zürich and Zug.</p>
+              <p>Reformer Pilates in Zürich and Zug</p>
             </div>
             <div className="foot-col">
               <h4>Classes</h4>

@@ -34,9 +34,9 @@ export default async function SitePage({
           <div className="wrap">
             <div className="hero-copy">
               <span className="badge">Zürich &amp; Zug</span>
-              <h1>Bewegung &amp; integrative Gesundheit</h1>
-              <p className="sub serif">Für körperliche Stärke, ein reguliertes Nervensystem und mentale Balance.</p>
-              <p className="small">Reformer Pilates in Zürich und Zug.</p>
+              <h1>Kraft, die sich gut anfühlt</h1>
+              <p className="sub serif">Reformer Pilates in kleinen Gruppen, mit Zeit für jede Bewegung</p>
+              <p className="small">Für Einsteiger*innen und Fortgeschrittene</p>
               <a href="/buchen" className="btn btn-lg">Reformer buchen</a>
             </div>
           </div>
@@ -454,7 +454,7 @@ export default async function SitePage({
           <div className="foot-cols">
             <div className="foot-brand">
               <a href="#top" className="logo"><img src="/bilder/logo.png" alt="Studio Lumen" /> STUDIO LUMEN</a>
-              <p>Bewegung und integrative Gesundheit in Zürich und Zug.</p>
+              <p>Reformer Pilates in Zürich und Zug</p>
             </div>
             <div className="foot-col">
               <h4>Angebot</h4>
