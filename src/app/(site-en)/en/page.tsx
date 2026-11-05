@@ -247,36 +247,6 @@ export default async function SitePageEn({
           </div>
         </section>
 
-        {/* ZUG */}
-        <section id="zug" className="zug-band">
-          <div className="wrap">
-            <p className="eyebrow">Two locations</p>
-            <h2>One pass, two studios</h2>
-            <p>In Zürich and in Zug you train on the same pass. One schedule for both studios, and you book wherever suits you better on the day.</p>
-            <p className="highlight">Six reformers in Zürich, four in Zug. Both studios are open and classes are running.</p>
-            <div className="zug-cta">
-              <a href="/buchen" className="btn">Go to the schedule</a>
-              <a href="#standorte" className="btn ghost">See the locations</a>
-            </div>
-          </div>
-        </section>
-
-        <section className="tight">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="eyebrow">Zug studio</p>
-              <h2>Bright, quiet and generous</h2>
-              <p className="lead">Four reformers, plenty of daylight and space. Lindenhof 3 in Zug, a few minutes from the station.</p>
-            </div>
-            <div className="photo-strip">
-              <a href="/bilder/zug-fenster.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-fenster.jpg" alt="Reformers by the window, Zug studio" /></a>
-              <a href="/bilder/zug-wand.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-wand.jpg" alt="Reformer training wall, Zug studio" /></a>
-              <a href="/bilder/zug-symmetrie.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-symmetrie.jpg" alt="Training room Zug" /></a>
-              <a href="/bilder/zug-ringe.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-ringe.jpg" alt="Pilates rings and balls, Zug studio" /></a>
-            </div>
-          </div>
-        </section>
-
         {/* GALERIE */}
         <section id="galerie">
           <div className="wrap">
@@ -384,6 +354,19 @@ export default async function SitePageEn({
           </div>
         </section>
 
+        {/* ZWEI STANDORTE */}
+        <section className="zug-band">
+          <div className="wrap">
+            <p className="eyebrow">Two locations</p>
+            <h2>One pass, two studios</h2>
+            <p>In Zürich and in Zug you train on the same pass. One schedule for both studios, and you book wherever suits you better on the day.</p>
+            <p className="highlight">Six reformers in Zürich, four in Zug. Both studios are open and classes are running.</p>
+            <div className="zug-cta">
+              <a href="/buchen" className="btn">Go to the schedule</a>
+            </div>
+          </div>
+        </section>
+
         {/* STANDORTE */}
         <section id="standorte" className="benefits">
           <div className="wrap">
@@ -395,7 +378,7 @@ export default async function SitePageEn({
               <div className="loc">
                 <div className="loc-img"><img src="/bilder/reformer-wall.jpg" alt="Zürich studio" /></div>
                 <div className="loc-body">
-                  <p className="tag">Mat &amp; reformer training</p>
+                  <p className="tag">Reformer training</p>
                   <h3>Studio Lumen, Zürich</h3>
                   <p>Werkgasse 7<br />8004 Zürich</p>
                   <a className="route" href="https://www.google.com/maps/search/?api=1&amp;query=Werkgasse+7+8004+Zürich" target="_blank" rel="noopener">Open in maps</a>
@@ -404,12 +387,23 @@ export default async function SitePageEn({
               <div className="loc">
                 <div className="loc-img"><img src="/bilder/zug-wand.jpg" alt="Zug studio" /></div>
                 <div className="loc-body">
-                  <p className="tag">Reformertraining</p>
+                  <p className="tag">Reformer training</p>
                   <h3>Studio Lumen, Zug</h3>
                   <p>Lindenhof 3<br />6300 Zug</p>
                   <a className="route" href="https://www.google.com/maps/search/?api=1&amp;query=Lindenhof+3+6300+Zug" target="_blank" rel="noopener">Open in maps</a>
                 </div>
               </div>
+            </div>
+            <div className="section-head loc-detail">
+              <p className="eyebrow">Zug studio</p>
+              <h2>Bright, quiet and generous</h2>
+              <p className="lead">Four reformers, plenty of daylight and space. Lindenhof 3 in Zug, a few minutes from the station.</p>
+            </div>
+            <div className="photo-strip">
+              <a href="/bilder/zug-fenster.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-fenster.jpg" alt="Reformers by the window, Zug studio" /></a>
+              <a href="/bilder/zug-wand.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-wand.jpg" alt="Reformer training wall, Zug studio" /></a>
+              <a href="/bilder/zug-symmetrie.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-symmetrie.jpg" alt="Training room Zug" /></a>
+              <a href="/bilder/zug-ringe.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-ringe.jpg" alt="Pilates rings and balls, Zug studio" /></a>
             </div>
           </div>
         </section>
@@ -473,7 +467,7 @@ export default async function SitePageEn({
                 <li><a href="#team">About us</a></li>
                 <li><a href="#team">The team</a></li>
                 <li><a href="#galerie">Gallery</a></li>
-                <li><a href="#zug">Zug location</a></li>
+                <li><a href="#standorte">Locations</a></li>
                 <li><a href="#kontakt">Contact</a></li>
                 <li><a href="mailto:info@studio-lumen.ch?subject=Job%20openings">Job openings</a></li>
               </ul>

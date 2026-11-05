@@ -249,36 +249,6 @@ export default async function SitePage({
           </div>
         </section>
 
-        {/* ZUG */}
-        <section id="zug" className="zug-band">
-          <div className="wrap">
-            <p className="eyebrow">Zwei Standorte</p>
-            <h2>Ein Abo, zwei Studios</h2>
-            <p>In Zürich und in Zug trainierst du mit demselben Abo. Ein Stundenplan für beide Studios, und du buchst dort, wo es dir gerade besser passt.</p>
-            <p className="highlight">Sechs Reformer in Zürich, vier in Zug. Beide Studios sind offen, die Kurse laufen.</p>
-            <div className="zug-cta">
-              <a href="/buchen" className="btn">Zum Reformer Stundenplan</a>
-              <a href="#standorte" className="btn ghost">Standorte ansehen</a>
-            </div>
-          </div>
-        </section>
-
-        <section className="tight">
-          <div className="wrap">
-            <div className="section-head">
-              <p className="eyebrow">Studio Zug</p>
-              <h2>Hell, ruhig und grosszügig</h2>
-              <p className="lead">Vier Reformer, viel Tageslicht und Platz. Lindenhof 3 in Zug, wenige Gehminuten vom Bahnhof.</p>
-            </div>
-            <div className="photo-strip">
-              <a href="/bilder/zug-fenster.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-fenster.jpg" alt="Reformer am Fenster, Studio Zug" /></a>
-              <a href="/bilder/zug-wand.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-wand.jpg" alt="Reformer Training Wand, Studio Zug" /></a>
-              <a href="/bilder/zug-symmetrie.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-symmetrie.jpg" alt="Trainingsraum Zug" /></a>
-              <a href="/bilder/zug-ringe.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-ringe.jpg" alt="Pilates Ringe und Bälle, Studio Zug" /></a>
-            </div>
-          </div>
-        </section>
-
         {/* GALERIE */}
         <section id="galerie">
           <div className="wrap">
@@ -386,6 +356,19 @@ export default async function SitePage({
           </div>
         </section>
 
+        {/* ZWEI STANDORTE */}
+        <section className="zug-band">
+          <div className="wrap">
+            <p className="eyebrow">Zwei Standorte</p>
+            <h2>Ein Abo, zwei Studios</h2>
+            <p>In Zürich und in Zug trainierst du mit demselben Abo. Ein Stundenplan für beide Studios, und du buchst dort, wo es dir gerade besser passt.</p>
+            <p className="highlight">Sechs Reformer in Zürich, vier in Zug. Beide Studios sind offen, die Kurse laufen.</p>
+            <div className="zug-cta">
+              <a href="/buchen" className="btn">Zum Reformer Stundenplan</a>
+            </div>
+          </div>
+        </section>
+
         {/* STANDORTE */}
         <section id="standorte" className="benefits">
           <div className="wrap">
@@ -412,6 +395,17 @@ export default async function SitePage({
                   <a className="route" href="https://www.google.com/maps/search/?api=1&amp;query=Lindenhof+3+6300+Zug" target="_blank" rel="noopener">Route öffnen</a>
                 </div>
               </div>
+            </div>
+            <div className="section-head loc-detail">
+              <p className="eyebrow">Studio Zug</p>
+              <h2>Hell, ruhig und grosszügig</h2>
+              <p className="lead">Vier Reformer, viel Tageslicht und Platz. Lindenhof 3 in Zug, wenige Gehminuten vom Bahnhof.</p>
+            </div>
+            <div className="photo-strip">
+              <a href="/bilder/zug-fenster.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-fenster.jpg" alt="Reformer am Fenster, Studio Zug" /></a>
+              <a href="/bilder/zug-wand.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-wand.jpg" alt="Reformer Training Wand, Studio Zug" /></a>
+              <a href="/bilder/zug-symmetrie.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-symmetrie.jpg" alt="Trainingsraum Zug" /></a>
+              <a href="/bilder/zug-ringe.jpg" target="_blank" rel="noopener"><img src="/bilder/zug-ringe.jpg" alt="Pilates Ringe und Bälle, Studio Zug" /></a>
             </div>
           </div>
         </section>
@@ -475,7 +469,7 @@ export default async function SitePage({
                 <li><a href="#team">Über uns</a></li>
                 <li><a href="#team">Team</a></li>
                 <li><a href="#galerie">Galerie</a></li>
-                <li><a href="#zug">Standort Zug</a></li>
+                <li><a href="#standorte">Standorte</a></li>
                 <li><a href="#kontakt">Kontakt</a></li>
                 <li><a href="mailto:info@studio-lumen.ch?subject=Offene%20Stellen">Offene Stellen</a></li>
               </ul>

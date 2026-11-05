@@ -92,7 +92,6 @@ export default function SiteNav({
           }}
         >
           <a href={anchor('angebot')} {...newTab}>{s.angebot}</a>
-          <a href={anchor('zug')} {...newTab}>Zug</a>
           <a href={anchor('galerie')} {...newTab}>{s.galerie}</a>
           <a href={anchor('team')} {...newTab}>{s.team}</a>
           <a href={anchor('standorte')} {...newTab}>{s.standorte}</a>
